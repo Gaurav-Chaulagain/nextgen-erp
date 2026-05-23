@@ -1,0 +1,772 @@
+// ============================================================================
+// NextGen Interior And WaterProofing — ERP Prisma Schema
+// PAN: 122782202 | Owner: Nischal Timsina
+// Gauradaha Nagarpalika-02, Jhapa, Nepal
+// ============================================================================
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum Role {
+  SUPERADMIN
+  OWNER
+  MANAGER
+  SALES_STAFF
+  PURCHASE_STAFF
+  VIEWER
+}
+
+enum Unit {
+  BAG
+  PCS
+  METER
+  KG
+  LITRE
+  SQ_FT
+  ROLL
+  BOX
+}
+
+enum CustomerType {
+  RETAIL
+  WHOLESALE
+  PROJECT
+}
+
+enum StockTransactionType {
+  PURCHASE_IN
+  SALE_OUT
+  PROJECT_ISSUE
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  TRANSFER
+  RETURN_IN
+  RETURN_OUT
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  PARTIAL
+  RECEIVED
+  CANCELLED
+}
+
+enum InvoiceType {
+  RETAIL
+  WHOLESALE
+  PROJECT
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CREDIT
+  CHEQUE
+  ESEWA
+  KHALTI
+}
+
+/// Simplified payment methods for ledger/cashbook (no CREDIT — credit isn't a cash movement)
+enum PaymentMode {
+  CASH
+  BANK
+  CHEQUE
+  ESEWA
+  KHALTI
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum PartyType {
+  CUSTOMER
+  SUPPLIER
+}
+
+enum EntryType {
+  DEBIT
+  CREDIT
+}
+
+enum ChannelType {
+  RETAIL
+  WHOLESALE
+  PROJECT
+  GENERAL
+}
+
+enum CashEntryType {
+  RECEIVED
+  PAID
+}
+
+enum DepreciationMethod {
+  STRAIGHT_LINE
+  DECLINING_BALANCE
+}
+
+// ============================================================================
+// 1. USER
+// ============================================================================
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  role         Role      @default(VIEWER)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLogin    DateTime? @map("last_login")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relations — user as creator of various records
+  purchaseOrders    PurchaseOrder[]
+  salesInvoices     SalesInvoice[]
+  projects          Project[]
+  payments          Payment[]
+  ledgerEntries     LedgerEntry[]
+  cashBookEntries   CashBookEntry[]
+  stockTransactions StockTransaction[]
+  auditLogs         AuditLog[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// ============================================================================
+// 2. CATEGORY
+// ============================================================================
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  products Product[]
+
+  @@index([isActive])
+  @@map("categories")
+}
+
+// ============================================================================
+// 3. BRAND
+// ============================================================================
+
+model Brand {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  products Product[]
+
+  @@index([isActive])
+  @@map("brands")
+}
+
+// ============================================================================
+// 4. PRODUCT
+// ============================================================================
+
+/// Master product record. `code` is auto-generated in app layer as ITM-001, ITM-002, etc.
+model Product {
+  id            String   @id @default(cuid())
+  code          String   @unique /// Auto-generated: ITM-XXX
+  name          String
+  categoryId    String   @map("category_id")
+  brandId       String   @map("brand_id")
+  unit          Unit
+  description   String?
+  minStockLevel Int      @default(0) @map("min_stock_level") /// Alert when stock drops below this
+  reorderLevel  Int      @default(0) @map("reorder_level") /// Trigger reorder at this level
+  isActive      Boolean  @default(true) @map("is_active")
+  images        String[] @default([]) /// Array of image URLs / paths
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  category          Category           @relation(fields: [categoryId], references: [id])
+  brand             Brand              @relation(fields: [brandId], references: [id])
+  variants          ProductVariant[]
+  stockEntries      InventoryStock[]
+  stockTransactions StockTransaction[]
+  purchaseItems     PurchaseOrderItem[]
+  salesItems        SalesInvoiceItem[]
+
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([isActive])
+  @@index([code])
+  @@map("products")
+}
+
+// ============================================================================
+// 5. PRODUCT VARIANT (multi-supplier pricing)
+// ============================================================================
+
+/// Same product can come from different suppliers at different price points.
+/// Tracks purchase cost + three-tier sell prices (retail, wholesale, project).
+model ProductVariant {
+  id             String   @id @default(cuid())
+  productId      String   @map("product_id")
+  supplierId     String   @map("supplier_id")
+  purchasePrice  Decimal  @map("purchase_price") @db.Decimal(12, 2)
+  retailPrice    Decimal  @map("retail_price") @db.Decimal(12, 2)
+  wholesalePrice Decimal  @map("wholesale_price") @db.Decimal(12, 2)
+  projectPrice   Decimal  @map("project_price") @db.Decimal(12, 2)
+  effectiveDate  DateTime @map("effective_date") /// When this pricing takes effect
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  product  Product  @relation(fields: [productId], references: [id])
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+
+  @@index([productId])
+  @@index([supplierId])
+  @@index([productId, supplierId, isActive])
+  @@map("product_variants")
+}
+
+// ============================================================================
+// 6. SUPPLIER
+// ============================================================================
+
+model Supplier {
+  id             String   @id @default(cuid())
+  code           String   @unique /// Auto-generated: SUP-XXX
+  name           String
+  contactPerson  String?  @map("contact_person")
+  phone          String?
+  email          String?
+  address        String?
+  panNumber      String?  @map("pan_number") /// Nepali PAN for tax purposes
+  openingBalance Decimal  @default(0) @map("opening_balance") @db.Decimal(14, 2) /// Balance carried forward
+  notes          String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  productVariants ProductVariant[]
+  purchaseOrders  PurchaseOrder[]
+
+  @@index([isActive])
+  @@index([panNumber])
+  @@map("suppliers")
+}
+
+// ============================================================================
+// 7. CUSTOMER
+// ============================================================================
+
+model Customer {
+  id             String       @id @default(cuid())
+  code           String       @unique /// Auto-generated: CUS-XXX
+  name           String
+  contactPerson  String?      @map("contact_person")
+  phone          String?
+  email          String?
+  address        String?
+  panNumber      String?      @map("pan_number")
+  customerType   CustomerType @default(RETAIL) @map("customer_type")
+  creditLimit    Decimal      @default(0) @map("credit_limit") @db.Decimal(14, 2) /// Max credit allowed
+  openingBalance Decimal      @default(0) @map("opening_balance") @db.Decimal(14, 2)
+  notes          String?
+  isActive       Boolean      @default(true) @map("is_active")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  salesInvoices SalesInvoice[]
+  projects      Project[] /// Projects where this customer is the client
+
+  @@index([customerType])
+  @@index([isActive])
+  @@index([panNumber])
+  @@map("customers")
+}
+
+// ============================================================================
+// 8. WAREHOUSE
+// ============================================================================
+
+model Warehouse {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  location    String?
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  stockEntries      InventoryStock[]
+  stockTransactions StockTransaction[]
+  salesItems        SalesInvoiceItem[]
+
+  @@map("warehouses")
+}
+
+// ============================================================================
+// 9. INVENTORY STOCK (current stock snapshot per product per warehouse)
+// ============================================================================
+
+/// Denormalized current stock. Updated via StockTransaction triggers/logic.
+/// `reservedQty` holds stock allocated to pending sales/projects not yet dispatched.
+model InventoryStock {
+  id          String   @id @default(cuid())
+  productId   String   @map("product_id")
+  warehouseId String   @map("warehouse_id")
+  quantity    Int      @default(0) /// Current available quantity
+  reservedQty Int      @default(0) @map("reserved_qty") /// Allocated but not yet dispatched
+  lastUpdated DateTime @default(now()) @updatedAt @map("last_updated")
+
+  // Relations
+  product   Product   @relation(fields: [productId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+
+  @@unique([productId, warehouseId]) /// One row per product per warehouse
+  @@index([productId])
+  @@index([warehouseId])
+  @@map("inventory_stock")
+}
+
+// ============================================================================
+// 10. STOCK TRANSACTION (immutable ledger of all inventory movements)
+// ============================================================================
+
+/// IMMUTABLE — never updated after creation. Every inventory movement is a new row.
+/// `referenceType` + `referenceId` links back to the source document (PO, Invoice, etc.)
+model StockTransaction {
+  id            String               @id @default(cuid())
+  type          StockTransactionType
+  productId     String               @map("product_id")
+  warehouseId   String               @map("warehouse_id")
+  quantity      Int /// Positive = in, Negative = out
+  unitCost      Decimal              @map("unit_cost") @db.Decimal(12, 2) /// Cost per unit at time of transaction
+  referenceType String?              @map("reference_type") /// e.g. "PURCHASE_ORDER", "SALES_INVOICE"
+  referenceId   String?              @map("reference_id") /// ID of the source document
+  notes         String?
+  userId        String               @map("user_id") /// Who performed this transaction
+  createdAt     DateTime             @default(now()) @map("created_at")
+
+  // Relations
+  product   Product   @relation(fields: [productId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([userId])
+  @@index([referenceType, referenceId]) /// Fast lookup by source document
+  @@index([productId, warehouseId, createdAt]) /// Stock movement history
+  @@index([createdAt])
+  @@map("stock_transactions")
+}
+
+// ============================================================================
+// 11. PURCHASE ORDER
+// ============================================================================
+
+model PurchaseOrder {
+  id             String              @id @default(cuid())
+  poNumber       String              @unique @map("po_number") /// Auto-generated: PO-XXXX
+  supplierId     String              @map("supplier_id")
+  orderDate      DateTime            @map("order_date")
+  expectedDate   DateTime?           @map("expected_date")
+  status         PurchaseOrderStatus @default(DRAFT)
+  subtotal       Decimal             @default(0) @db.Decimal(14, 2)
+  discountAmount Decimal             @default(0) @map("discount_amount") @db.Decimal(14, 2)
+  taxAmount      Decimal             @default(0) @map("tax_amount") @db.Decimal(14, 2) /// 13% VAT in Nepal
+  totalAmount    Decimal             @default(0) @map("total_amount") @db.Decimal(14, 2)
+  paidAmount     Decimal             @default(0) @map("paid_amount") @db.Decimal(14, 2)
+  notes          String?
+  billImageUrl   String?             @map("bill_image_url") /// Scanned supplier bill/invoice
+  createdBy      String              @map("created_by")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  // Relations
+  supplier Supplier            @relation(fields: [supplierId], references: [id])
+  creator  User                @relation(fields: [createdBy], references: [id])
+  items    PurchaseOrderItem[]
+
+  @@index([supplierId])
+  @@index([createdBy])
+  @@index([status])
+  @@index([orderDate])
+  @@index([supplierId, orderDate]) /// Purchases by supplier over time
+  @@map("purchase_orders")
+}
+
+// ============================================================================
+// 12. PURCHASE ORDER ITEM
+// ============================================================================
+
+model PurchaseOrderItem {
+  id              String  @id @default(cuid())
+  purchaseOrderId String  @map("purchase_order_id")
+  productId       String  @map("product_id")
+  orderedQty      Int     @map("ordered_qty")
+  receivedQty     Int     @default(0) @map("received_qty") /// Tracks partial receiving
+  unitPrice       Decimal @map("unit_price") @db.Decimal(12, 2)
+  totalPrice      Decimal @map("total_price") @db.Decimal(14, 2) /// orderedQty × unitPrice
+  notes           String?
+
+  // Relations
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id])
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+  @@map("purchase_order_items")
+}
+
+// ============================================================================
+// 13. SALES INVOICE
+// ============================================================================
+
+model SalesInvoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique @map("invoice_number") /// Auto-generated: INV-XXXX
+  customerId      String        @map("customer_id")
+  invoiceType     InvoiceType   @map("invoice_type")
+  projectId       String?       @map("project_id") /// Only set when invoiceType = PROJECT
+  invoiceDate     DateTime      @map("invoice_date")
+  dueDate         DateTime?     @map("due_date")
+  status          InvoiceStatus @default(DRAFT)
+  subtotal        Decimal       @default(0) @db.Decimal(14, 2)
+  discountPercent Decimal       @default(0) @map("discount_percent") @db.Decimal(5, 2) /// Overall invoice discount %
+  discountAmount  Decimal       @default(0) @map("discount_amount") @db.Decimal(14, 2)
+  vatPercent      Decimal       @default(13) @map("vat_percent") @db.Decimal(5, 2) /// Nepal standard: 13%
+  vatAmount       Decimal       @default(0) @map("vat_amount") @db.Decimal(14, 2)
+  totalAmount     Decimal       @default(0) @map("total_amount") @db.Decimal(14, 2)
+  paidAmount      Decimal       @default(0) @map("paid_amount") @db.Decimal(14, 2)
+  balanceAmount   Decimal       @default(0) @map("balance_amount") @db.Decimal(14, 2) /// totalAmount - paidAmount
+  paymentMethod   PaymentMethod? @map("payment_method") /// Primary payment method
+  notes           String?
+  createdBy       String        @map("created_by")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  customer       Customer           @relation(fields: [customerId], references: [id])
+  project        Project?           @relation(fields: [projectId], references: [id])
+  creator        User               @relation(fields: [createdBy], references: [id])
+  items          SalesInvoiceItem[]
+  projectBilling ProjectBilling[]
+
+  @@index([customerId])
+  @@index([projectId])
+  @@index([createdBy])
+  @@index([status])
+  @@index([invoiceDate])
+  @@index([invoiceType])
+  @@index([customerId, invoiceDate]) /// Customer invoice history
+  @@index([customerId, status]) /// Outstanding invoices per customer
+  @@map("sales_invoices")
+}
+
+// ============================================================================
+// 14. SALES INVOICE ITEM
+// ============================================================================
+
+model SalesInvoiceItem {
+  id              String  @id @default(cuid())
+  invoiceId       String  @map("invoice_id")
+  productId       String  @map("product_id")
+  qty             Int
+  unitPrice       Decimal @map("unit_price") @db.Decimal(12, 2)
+  discountPercent Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2) /// Line-level discount
+  totalPrice      Decimal @map("total_price") @db.Decimal(14, 2) /// (qty × unitPrice) - discount
+  warehouseId     String  @map("warehouse_id") /// Which warehouse to deduct stock from
+  notes           String?
+
+  // Relations
+  invoice   SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product   Product      @relation(fields: [productId], references: [id])
+  warehouse Warehouse    @relation(fields: [warehouseId], references: [id])
+
+  @@index([invoiceId])
+  @@index([productId])
+  @@index([warehouseId])
+  @@map("sales_invoice_items")
+}
+
+// ============================================================================
+// 15. PROJECT
+// ============================================================================
+
+model Project {
+  id             String        @id @default(cuid())
+  projectCode    String        @unique @map("project_code") /// Auto-generated: PRJ-XXX
+  name           String
+  clientId       String        @map("client_id") /// References Customer
+  description    String?
+  startDate      DateTime?     @map("start_date")
+  endDate        DateTime?     @map("end_date")
+  status         ProjectStatus @default(PLANNING)
+  budgetAmount   Decimal       @default(0) @map("budget_amount") @db.Decimal(14, 2)
+  contractAmount Decimal       @default(0) @map("contract_amount") @db.Decimal(14, 2)
+  notes          String?
+  createdBy      String        @map("created_by")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  client         Customer         @relation(fields: [clientId], references: [id])
+  creator        User             @relation(fields: [createdBy], references: [id])
+  salesInvoices  SalesInvoice[]
+  projectBilling ProjectBilling[]
+
+  @@index([clientId])
+  @@index([createdBy])
+  @@index([status])
+  @@map("projects")
+}
+
+// ============================================================================
+// 16. PROJECT BILLING
+// ============================================================================
+
+/// Links invoices to projects for tracking billing milestones.
+model ProjectBilling {
+  id          String   @id @default(cuid())
+  projectId   String   @map("project_id")
+  invoiceId   String   @map("invoice_id")
+  billingDate DateTime @map("billing_date")
+  amount      Decimal  @db.Decimal(14, 2)
+  notes       String?
+
+  // Relations
+  project Project      @relation(fields: [projectId], references: [id])
+  invoice SalesInvoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([projectId])
+  @@index([invoiceId])
+  @@index([projectId, billingDate])
+  @@map("project_billings")
+}
+
+// ============================================================================
+// 17. PAYMENT
+// ============================================================================
+
+/// Generic payment record for both sales (customer) and purchase (supplier) payments.
+/// `referenceType` = "INVOICE" or "PURCHASE", `referenceId` = the document ID.
+model Payment {
+  id            String      @id @default(cuid())
+  referenceType String      @map("reference_type") /// "INVOICE" | "PURCHASE"
+  referenceId   String      @map("reference_id") /// SalesInvoice.id or PurchaseOrder.id
+  partyType     PartyType   @map("party_type")
+  partyId       String      @map("party_id") /// Customer.id or Supplier.id
+  amount        Decimal     @db.Decimal(14, 2)
+  paymentMethod PaymentMode @map("payment_method")
+  paymentDate   DateTime    @map("payment_date")
+  notes         String?
+  createdBy     String      @map("created_by")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@index([referenceType, referenceId])
+  @@index([partyType, partyId])
+  @@index([paymentDate])
+  @@index([createdBy])
+  @@map("payments")
+}
+
+// ============================================================================
+// 18. LEDGER ENTRY (immutable double-entry style ledger)
+// ============================================================================
+
+/// IMMUTABLE — never updated. Corrections are made by posting reversal entries.
+/// Tracks running balance per party for real-time outstanding amounts.
+model LedgerEntry {
+  id             String      @id @default(cuid())
+  entryDate      DateTime    @map("entry_date")
+  partyType      PartyType   @map("party_type")
+  partyId        String      @map("party_id")
+  entryType      EntryType   @map("entry_type") /// DEBIT or CREDIT
+  amount         Decimal     @db.Decimal(14, 2)
+  referenceType  String?     @map("reference_type") /// Source document type
+  referenceId    String?     @map("reference_id") /// Source document ID
+  description    String?
+  runningBalance Decimal     @map("running_balance") @db.Decimal(14, 2) /// Balance after this entry
+  channelType    ChannelType @default(GENERAL) @map("channel_type") /// Sales channel context
+  createdBy      String      @map("created_by")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@index([partyType, partyId]) /// All entries for a party
+  @@index([partyType, partyId, entryDate]) /// Party ledger chronological
+  @@index([referenceType, referenceId])
+  @@index([entryDate])
+  @@index([channelType])
+  @@index([createdBy])
+  @@map("ledger_entries")
+}
+
+// ============================================================================
+// 19. CASH BOOK ENTRY
+// ============================================================================
+
+/// Tracks all cash inflows and outflows. IMMUTABLE.
+model CashBookEntry {
+  id            String        @id @default(cuid())
+  entryDate     DateTime      @map("entry_date")
+  type          CashEntryType /// RECEIVED or PAID
+  amount        Decimal       @db.Decimal(14, 2)
+  description   String?
+  partyType     PartyType?    @map("party_type")
+  partyId       String?       @map("party_id")
+  referenceType String?       @map("reference_type")
+  referenceId   String?       @map("reference_id")
+  paymentMethod PaymentMode   @map("payment_method")
+  createdBy     String        @map("created_by")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@index([entryDate])
+  @@index([type])
+  @@index([partyType, partyId])
+  @@index([referenceType, referenceId])
+  @@index([paymentMethod])
+  @@index([createdBy])
+  @@map("cash_book_entries")
+}
+
+// ============================================================================
+// 20. FIXED ASSET
+// ============================================================================
+
+/// Company-owned fixed assets (vehicles, machinery, furniture, etc.)
+/// Tracked for depreciation and balance sheet reporting.
+model FixedAsset {
+  id                   String              @id @default(cuid())
+  name                 String
+  category             String /// e.g. "Vehicle", "Machinery", "Furniture"
+  purchaseDate         DateTime            @map("purchase_date")
+  purchasePrice        Decimal             @map("purchase_price") @db.Decimal(14, 2)
+  usefulLifeYears      Int                 @map("useful_life_years")
+  depreciationMethod   DepreciationMethod  @default(STRAIGHT_LINE) @map("depreciation_method")
+  currentValue         Decimal             @map("current_value") @db.Decimal(14, 2) /// Book value after depreciation
+  isActive             Boolean             @default(true) @map("is_active")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+
+  // Relations
+  depreciationEntries DepreciationEntry[]
+
+  @@index([category])
+  @@index([isActive])
+  @@map("fixed_assets")
+}
+
+// ============================================================================
+// 21. DEPRECIATION ENTRY
+// ============================================================================
+
+/// Monthly depreciation record for each asset, per fiscal year.
+model DepreciationEntry {
+  id              String   @id @default(cuid())
+  assetId         String   @map("asset_id")
+  fiscalYear      String   @map("fiscal_year") /// e.g. "2081-82" (Nepali BS calendar)
+  month           Int /// 1-12 (Nepali month: Baisakh=1 ... Chaitra=12)
+  amount          Decimal  @db.Decimal(14, 2) /// Depreciation amount for this period
+  bookValueBefore Decimal  @map("book_value_before") @db.Decimal(14, 2)
+  bookValueAfter  Decimal  @map("book_value_after") @db.Decimal(14, 2)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relations
+  asset FixedAsset @relation(fields: [assetId], references: [id])
+
+  @@unique([assetId, fiscalYear, month]) /// One entry per asset per month
+  @@index([assetId])
+  @@index([fiscalYear])
+  @@map("depreciation_entries")
+}
+
+// ============================================================================
+// 22. FISCAL YEAR
+// ============================================================================
+
+/// Nepali fiscal year (Shrawan to Ashadh, mid-July to mid-July).
+/// e.g. name = "2081-82", startDate/endDate in AD for Prisma DateTime.
+model FiscalYear {
+  id        String   @id @default(cuid())
+  name      String   @unique /// e.g. "2081-82"
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  isCurrent Boolean  @default(false) @map("is_current") /// Only one should be true
+  isClosed  Boolean  @default(false) @map("is_closed") /// Prevent modifications after closing
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([isCurrent])
+  @@map("fiscal_years")
+}
+
+// ============================================================================
+// 23. AUDIT LOG
+// ============================================================================
+
+/// Immutable audit trail. Records every significant data change.
+/// `oldValues` and `newValues` store JSON snapshots for diffing.
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  action    String /// e.g. "CREATE", "UPDATE", "DELETE", "LOGIN"
+  module    String /// e.g. "PRODUCT", "INVOICE", "PAYMENT"
+  recordId  String?  @map("record_id") /// ID of the affected record
+  oldValues Json?    @map("old_values") /// Previous state snapshot
+  newValues Json?    @map("new_values") /// New state snapshot
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([module])
+  @@index([action])
+  @@index([recordId])
+  @@index([userId, module]) /// User activity per module
+  @@index([createdAt])
+  @@map("audit_logs")
+}

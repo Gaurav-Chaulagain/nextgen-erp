@@ -1,0 +1,181 @@
+import { StockTransactionType } from "../../generated/prisma/client";
+import Decimal from "decimal.js";
+import { getDb } from "@/lib/db";
+import { inventoryItemSchema, createInventoryItemSchema, adjustInventoryQuantitySchema, type CreateInventoryItemInput } from "./types";
+import { needsReorder } from "./utils";
+import { fetchInventoryAlerts } from "./queries";
+
+export async function createInventoryItem(data: CreateInventoryItemInput, userId: string) {
+  const parsed = createInventoryItemSchema.parse(data);
+  const db = await getDb();
+
+  const code = `ITM-${Date.now().toString().slice(-6)}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+  // Perform creation in a single transaction for atomicity
+  const result = await db.$transaction(async (tx) => {
+    const product = await tx.product.create({
+      data: {
+        code,
+        name: parsed.name,
+        categoryId: parsed.categoryId,
+        brandId: parsed.brandId,
+        unit: parsed.unit,
+        description: parsed.description,
+        minStockLevel: parsed.minStockLevel,
+        reorderLevel: parsed.reorderLevel,
+        images: [],
+      },
+    });
+
+    // create variants if provided
+    if (parsed.variants && parsed.variants.length) {
+      for (const v of parsed.variants) {
+        await tx.productVariant.create({
+          data: {
+            productId: product.id,
+            supplierId: v.supplierId,
+            purchasePrice: new Decimal(v.purchasePrice),
+            retailPrice: new Decimal(v.retailPrice),
+            wholesalePrice: new Decimal(v.wholesalePrice),
+            projectPrice: new Decimal(v.projectPrice),
+            effectiveDate: v.effectiveDate ? new Date(v.effectiveDate) : new Date(),
+            isActive: v.isActive ?? true,
+            createdAt: new Date(),
+          },
+        });
+      }
+    }
+
+    const stock = await tx.inventoryStock.create({
+      data: {
+        productId: product.id,
+        warehouseId: parsed.warehouseId,
+        quantity: parsed.quantity,
+        reservedQty: 0,
+      },
+    });
+
+    const warehouse = await tx.warehouse.findUnique({ where: { id: parsed.warehouseId } });
+
+    await tx.stockTransaction.create({
+      data: {
+        type: parsed.quantity > 0 ? StockTransactionType.ADJUSTMENT_IN : StockTransactionType.ADJUSTMENT_OUT,
+        productId: product.id,
+        warehouseId: parsed.warehouseId,
+        quantity: parsed.quantity,
+        unitCost: new Decimal(0),
+        referenceType: 'INVENTORY_INIT',
+        referenceId: stock.id,
+        notes: parsed.quantity > 0 ? 'Initial stock allocation' : 'Created item with zero opening stock',
+        userId,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        userId,
+        action: 'CREATE',
+        module: 'INVENTORY',
+        recordId: product.id,
+        newValues: {
+          product: {
+            id: product.id,
+            code: product.code,
+            name: product.name,
+            quantity: stock.quantity,
+          },
+        },
+      },
+    });
+
+    return { product, stock, warehouse };
+  });
+
+  return inventoryItemSchema.parse({
+    id: result.stock.id,
+    productId: result.product.id,
+    productCode: result.product.code,
+    name: result.product.name,
+    category: null,
+    brand: null,
+    warehouse: result.warehouse?.name ?? parsed.warehouseId,
+    warehouseId: parsed.warehouseId,
+    unit: result.product.unit,
+    quantity: result.stock.quantity,
+    reservedQty: result.stock.reservedQty,
+    minStockLevel: result.product.minStockLevel,
+    reorderLevel: result.product.reorderLevel,
+    status: needsReorder(result.stock.quantity, result.product.reorderLevel) ? 'reorder' : 'ok',
+    lastUpdated: result.stock.lastUpdated.toISOString(),
+  });
+}
+
+export async function adjustInventoryQuantity(stockId: string, adjustment: number, userId: string) {
+  const parsed = adjustInventoryQuantitySchema.parse({ stockId, adjustment });
+  const db = await getDb();
+
+  const existingStock = await db.inventoryStock.findUnique({
+    where: { id: parsed.stockId },
+    include: { product: true },
+  });
+
+  if (!existingStock) {
+    throw new Error("Inventory stock record not found.");
+  }
+
+  const updatedQuantity = existingStock.quantity + parsed.adjustment;
+  if (updatedQuantity < 0) {
+    throw new Error("Stock adjustment cannot result in negative inventory.");
+  }
+
+  const result = await db.$transaction(async (tx) => {
+    const updated = await tx.inventoryStock.update({
+      where: { id: existingStock.id },
+      data: { quantity: updatedQuantity },
+    });
+
+    const transaction = await tx.stockTransaction.create({
+      data: {
+        type: parsed.adjustment > 0 ? StockTransactionType.ADJUSTMENT_IN : StockTransactionType.ADJUSTMENT_OUT,
+        productId: existingStock.productId,
+        warehouseId: existingStock.warehouseId,
+        quantity: parsed.adjustment,
+        unitCost: new Decimal(0),
+        referenceType: "INVENTORY_ADJUSTMENT",
+        referenceId: existingStock.id,
+        notes: parsed.notes,
+        userId,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        userId,
+        action: "UPDATE",
+        module: "INVENTORY",
+        recordId: existingStock.id,
+        oldValues: {
+          quantity: existingStock.quantity,
+          reservedQty: existingStock.reservedQty,
+        },
+        newValues: {
+          quantity: updated.quantity,
+          reservedQty: updated.reservedQty,
+        },
+      },
+    });
+
+    return updated;
+  });
+
+  return {
+    id: result.id,
+    quantity: result.quantity,
+    reservedQty: result.reservedQty,
+    updatedAt: result.lastUpdated.toISOString(),
+  };
+}
+
+export async function getInventoryAlerts() {
+  return fetchInventoryAlerts();
+}
