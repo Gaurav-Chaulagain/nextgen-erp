@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { InvoiceType, ProjectStatus, PurchaseOrderStatus } from "@/generated/prisma/client";
 import { cache } from "react";
 import { getCashBookSummary } from "../accounting/cashbook";
+import { serializeForClient } from "@/lib/utils";
 
 // Cache dashboard queries for the request duration to optimize performance
 export const getDashboardKPIs = cache(async (month: number, year: number) => {
@@ -97,7 +98,7 @@ export const getDashboardKPIs = cache(async (month: number, year: number) => {
     }
   }
 
-  return {
+  return serializeForClient({
     revenue: {
       thisMonth: revThisMonth.toString(),
       pctChange: Math.round(revPctChange * 100) / 100
@@ -113,7 +114,7 @@ export const getDashboardKPIs = cache(async (month: number, year: number) => {
     lowStock: {
       count: lowStockCount
     }
-  };
+  });
 });
 
 export async function getRecentInvoices(limit = 5) {
@@ -124,19 +125,21 @@ export async function getRecentInvoices(limit = 5) {
     include: { customer: { select: { name: true } } }
   });
 
-  return invoices.map(inv => ({
-    id: inv.id,
-    invoiceNumber: inv.invoiceNumber,
-    customerName: inv.customer.name,
-    date: inv.invoiceDate.toISOString().split("T")[0],
-    amount: inv.totalAmount.toString(),
-    status: inv.status,
-    invoiceType: inv.invoiceType
-  }));
+  return serializeForClient(
+    invoices.map(inv => ({
+      id: inv.id,
+      invoiceNumber: inv.invoiceNumber,
+      customerName: inv.customer.name,
+      date: inv.invoiceDate.toISOString().split("T")[0],
+      amount: inv.totalAmount.toString(),
+      status: inv.status,
+      invoiceType: inv.invoiceType
+    }))
+  );
 }
 
 export async function getCashSummary(date: string) {
-  return getCashBookSummary(date);
+  return serializeForClient(await getCashBookSummary(date));
 }
 
 export async function getLowStockAlerts(limit = 5) {
@@ -162,7 +165,7 @@ export async function getLowStockAlerts(limit = 5) {
     .sort((a, b) => a.stock - b.stock)
     .slice(0, limit);
 
-  return alerts;
+  return serializeForClient(alerts);
 }
 
 export async function getPendingVendorPayments(limit = 5) {
@@ -200,7 +203,7 @@ export async function getPendingVendorPayments(limit = 5) {
     .sort((a, b) => b.daysOverdue - a.daysOverdue)
     .slice(0, limit);
 
-  return pending;
+  return serializeForClient(pending);
 }
 
 export async function getActiveProjectsSummary() {
@@ -254,7 +257,7 @@ export async function getActiveProjectsSummary() {
     });
   }
 
-  return summary;
+  return serializeForClient(summary);
 }
 
 export async function getMonthlyRevenueByChannel(monthsCount = 6) {
@@ -295,7 +298,7 @@ export async function getMonthlyRevenueByChannel(monthsCount = 6) {
     });
   }
 
-  return results;
+  return serializeForClient(results);
 }
 
 export async function getDashboardSearchData() {
@@ -340,7 +343,7 @@ export async function getDashboardSearchData() {
     })
   );
 
-  return {
+  return serializeForClient({
     customers: customerBalances,
     vendors: supplierBalances,
     invoices: invoices.map((inv) => ({
@@ -357,5 +360,5 @@ export async function getDashboardSearchData() {
       totalAmount: po.totalAmount.toString(),
       status: po.status,
     })),
-  };
+  });
 }

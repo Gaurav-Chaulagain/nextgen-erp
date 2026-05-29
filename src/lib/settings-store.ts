@@ -6,6 +6,7 @@ export interface BusinessInfo {
   pan: string;
   address: string;
   phone: string;
+  email?: string;
   logoUrl?: string;
 }
 
@@ -33,6 +34,7 @@ const defaultSettings: SystemSettings = {
     pan: "122782202",
     address: "Gauradaha Nagarpalika-02, Jhapa, Nepal",
     phone: "9843146474",
+    email: "nextgen.interior2025@gmail.com, nischaltimsina20@gmail.com",
     logoUrl: "",
   },
   invoiceSettings: {

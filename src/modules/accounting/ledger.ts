@@ -2,6 +2,7 @@ import { getDb } from "@/lib/db";
 import { getCurrentUser } from "@/modules/auth/session";
 import Decimal from "decimal.js";
 import { PartyType, EntryType, ChannelType } from "@/generated/prisma/client";
+import { serializeForClient } from "@/lib/utils";
 
 interface CreateLedgerEntryData {
   entryDate: Date | string;
@@ -226,7 +227,7 @@ export async function getPartyLedger(partyType: PartyType, partyId: string, filt
 
   const totalItems = await db.ledgerEntry.count({ where: whereClause });
 
-  return {
+  return serializeForClient({
     openingBalance: openingBalance.toString(),
     entries: entries.map(e => ({
       ...e,
@@ -239,7 +240,7 @@ export async function getPartyLedger(partyType: PartyType, partyId: string, filt
       totalItems,
       pageCount: Math.ceil(totalItems / pageSize),
     },
-  };
+  });
 }
 
 // 4. GET LEDGER SUMMARY (DASHBOARD OUTSTANDING AR / AP MATRIX)
@@ -280,11 +281,11 @@ export async function getLedgerSummary() {
     }
   }
 
-  return {
+  return serializeForClient({
     totalReceivable: totalReceivable.toString(),
     totalPayable: totalPayable.toString(),
     netPosition: totalReceivable.minus(totalPayable).toString(),
-  };
+  });
 }
 
 // 5. GET CHANNEL LEDGER
@@ -304,11 +305,13 @@ export async function getChannelLedger(channel: ChannelType, dateFrom?: string |
     orderBy: [{ entryDate: "asc" }, { createdAt: "asc" }],
   });
 
-  return entries.map(e => ({
-    ...e,
-    amount: e.amount.toString(),
-    runningBalance: e.runningBalance.toString(),
-  }));
+  return serializeForClient(
+    entries.map(e => ({
+      ...e,
+      amount: e.amount.toString(),
+      runningBalance: e.runningBalance.toString(),
+    }))
+  );
 }
 
 // 6. GET TRIAL BALANCE (DEBITS AND CREDITS AS OF A SPECIFIC DATE)
@@ -414,13 +417,13 @@ export async function getTrialBalance(asOf: Date | string) {
     }
   }
 
-  return {
+  return serializeForClient({
     rows: trialRows,
     totals: {
       debit: totalDebit.toString(),
       credit: totalCredit.toString(),
     },
-  };
+  });
 }
 
 // 7. GET ALL PARTIES LEDGER BALANCES (CUSTOMERS & SUPPLIERS DETAILED LIST)
@@ -515,5 +518,5 @@ export async function getPartiesBalances() {
     });
   }
 
-  return [...customerResults, ...supplierResults];
+  return serializeForClient([...customerResults, ...supplierResults]);
 }

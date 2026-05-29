@@ -31,8 +31,6 @@ import {
   getSalesSummary,
   getItemWiseSales,
   getAgingReport,
-  getStockValuation,
-  getABCAnalysis,
   getProjectProfitability,
   getCashFlowData,
   getPurchaseSummary,
@@ -207,13 +205,7 @@ export async function fetchAgingReportAction() {
   return getAgingReport();
 }
 
-export async function fetchStockValuationAction() {
-  return getStockValuation();
-}
 
-export async function fetchABCAnalysisAction() {
-  return getABCAnalysis();
-}
 
 export async function fetchProjectProfitabilityAction() {
   return getProjectProfitability();

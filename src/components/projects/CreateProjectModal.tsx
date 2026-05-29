@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createProjectSchema, updateProjectSchema } from "@/modules/projects/types";
@@ -107,6 +107,9 @@ export function CreateProjectModal({ open, onOpenChange, clients, project = null
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{project ? `Edit Project — ${project.projectCode}` : "Create Construction Project"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Form modal to create or edit project contract details including values, budgets, and clients.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">

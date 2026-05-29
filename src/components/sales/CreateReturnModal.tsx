@@ -2,13 +2,15 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { formatNPR } from "@/lib/utils";
 import type { SalesInvoiceSchema } from "@/modules/sales/types";
 import { createSalesReturn } from "@/modules/sales/actions";
 import { toast } from "sonner";
+import { ShieldAlert, ArrowLeftRight, CheckCircle } from "lucide-react";
 
 interface CreateReturnModalProps {
   open: boolean;
@@ -19,6 +21,7 @@ interface CreateReturnModalProps {
 export function CreateReturnModal({ open, onOpenChange, invoice }: CreateReturnModalProps) {
   const router = useRouter();
   const [reason, setReason] = useState("");
+  const [refundMethod, setRefundMethod] = useState<any>("CASH");
   const [returnQtys, setReturnQtys] = useState<Record<string, number>>({});
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -64,12 +67,14 @@ export function CreateReturnModal({ open, onOpenChange, invoice }: CreateReturnM
         await createSalesReturn({
           invoiceId: invoice.id,
           reason,
+          refundMethod,
           items: itemsToReturn,
         });
 
         toast.success("Sales return recorded successfully! Inventory has been credited back.");
         onOpenChange(false);
         setReason("");
+        setRefundMethod("CASH");
         setReturnQtys({});
         router.refresh();
       } catch (err: any) {
@@ -82,57 +87,80 @@ export function CreateReturnModal({ open, onOpenChange, invoice }: CreateReturnM
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Create Sales Return — Invoice: <span className="font-mono text-zinc-500">{invoice.invoiceNumber}</span></DialogTitle>
+      <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-y-auto bg-white border border-zinc-200 text-zinc-900 rounded-2xl shadow-xl">
+        <DialogHeader className="border-b border-zinc-200 pb-3">
+          <DialogTitle className="text-xl font-bold text-rose-650 flex items-center gap-2">
+            <ArrowLeftRight size={20} className="text-rose-500" /> Create Sales Return — Invoice: <span className="font-mono text-zinc-500">{invoice.invoiceNumber}</span>
+          </DialogTitle>
+          <DialogDescription className="text-xs text-zinc-500 mt-0.5">
+            Log returned products from the original construction or retail invoice. Re-credit inventory stock and record cash/bank customer refund payments instantly.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 pt-2">
-          {/* Return Reason */}
-          <div>
-            <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Reason for Return *</label>
-            <Input
-              placeholder="e.g. Damaged material, wrong items delivered, customer cancelled..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
+        <div className="flex-grow space-y-5 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 rounded-xl border border-zinc-200 bg-zinc-50/60 shadow-sm">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">Reason for Return *</Label>
+              <Input
+                placeholder="e.g. Defective waterproofing compound, excess tiles, client specification mismatch..."
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="h-10 bg-white border-zinc-300 text-zinc-900 focus:border-rose-500 focus:ring-rose-500/20 shadow-sm"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">Refund Issuance Method *</Label>
+              <select
+                value={refundMethod}
+                onChange={(e) => setRefundMethod(e.target.value)}
+                className="w-full h-10 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500 shadow-sm"
+              >
+                <option value="CASH">CASH REFUND</option>
+                <option value="BANK">BANK / DIRECT TRANSFER</option>
+                <option value="CHEQUE">CHEQUE DISBURSEMENT</option>
+                <option value="ESEWA">eSEWA TRANSFER</option>
+                <option value="KHALTI">KHALTI WALLET</option>
+              </select>
+            </div>
           </div>
 
-          <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mt-4">Invoice Line Items</h4>
-          <div className="border rounded-lg divide-y bg-zinc-50/20">
+          <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mt-4">Invoice Line Items</h4>
+          <div className="border border-zinc-200 rounded-xl divide-y divide-zinc-250 overflow-hidden bg-zinc-50/20 shadow-sm">
             {invoice.items.map((item) => {
               const currentQty = returnQtys[item.id] || 0;
               const refundValue = currentQty * parseFloat(item.unitPrice) * (1 - parseFloat(item.discountPercent) / 100);
 
               return (
-                <div key={item.id} className="p-4 flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
-                  <div className="flex-1">
-                    <p className="font-semibold text-sm text-zinc-900 dark:text-zinc-50">{item.productName}</p>
-                    <p className="text-xs text-zinc-500 font-mono">
+                <div key={item.id} className="p-4 grid grid-cols-12 gap-4 items-center bg-white hover:bg-zinc-50/30">
+                  <div className="col-span-12 sm:col-span-4">
+                    <p className="font-semibold text-zinc-900">{item.productName}</p>
+                    <p className="text-[10px] text-zinc-500 font-mono mt-0.5">
                       {item.productCode} • Rate: {formatNPR(parseFloat(item.unitPrice))}
                     </p>
                   </div>
-                  <div className="flex gap-4 items-center text-xs">
-                    <div>
-                      <span className="text-zinc-500 block mb-0.5">Purchased</span>
-                      <p className="font-semibold text-sm text-zinc-900">{item.qty} {item.productUnit}</p>
+
+                  <div className="col-span-12 sm:col-span-8 grid grid-cols-3 gap-3 items-end">
+                    <div className="text-center bg-zinc-50/50 py-1.5 rounded border border-zinc-200 shadow-sm">
+                      <span className="text-[9px] text-zinc-500 uppercase font-semibold block">Purchased</span>
+                      <p className="text-xs font-bold text-zinc-800">{item.qty} {item.productUnit}</p>
                     </div>
-                    <div className="w-20">
-                      <label className="text-zinc-500 block mb-0.5">Return Qty</label>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] text-zinc-500 uppercase font-semibold block">Return Qty</label>
                       <Input
                         type="number"
                         min={0}
                         max={item.qty}
-                        value={currentQty}
-                        onChange={(e) => handleQtyChange(item.id, Math.max(0, parseInt(e.target.value) || 0))}
-                        className="h-8"
+                        value={currentQty === 0 ? "" : currentQty}
+                        onChange={(e) => handleQtyChange(item.id, Math.min(item.qty, Math.max(0, parseInt(e.target.value) || 0)))}
+                        className="h-8 text-xs bg-white border-zinc-300 text-zinc-900 text-center shadow-sm focus:border-rose-500"
                       />
                     </div>
-                    <div className="w-24 text-right">
-                      <span className="text-zinc-500 block mb-0.5 font-semibold">Refund Value</span>
-                      <p className="font-bold text-sm text-zinc-950 dark:text-zinc-50">
-                        {formatNPR(refundValue)}
-                      </p>
+
+                    <div className="text-center bg-rose-50/40 py-1.5 rounded border border-rose-100 shadow-sm">
+                      <span className="text-[9px] text-rose-600 uppercase font-semibold block">Refund (NPR)</span>
+                      <p className="text-xs font-bold text-rose-600">{formatNPR(refundValue)}</p>
                     </div>
                   </div>
                 </div>
@@ -140,18 +168,29 @@ export function CreateReturnModal({ open, onOpenChange, invoice }: CreateReturnM
             })}
           </div>
 
-          {error && <p className="text-sm font-semibold text-red-600 mt-2">{error}</p>}
+          {error && <p className="text-sm font-semibold text-rose-650 mt-2">{error}</p>}
         </div>
 
-        <DialogFooter className="mt-4 border-t pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
+        <DialogFooter className="border-t border-zinc-200 pt-4 flex gap-2 justify-end">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isPending}
+            className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 shadow-sm"
+          >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isPending} className="bg-blue-600 hover:bg-blue-700 text-white">
-            {isPending ? "Processing..." : "Submit Return"}
+          <Button
+            onClick={handleSubmit}
+            disabled={isPending}
+            className="bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow-md border-none"
+          >
+            {isPending ? "Reconciling..." : "Confirm Return Note"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
+export default CreateReturnModal;

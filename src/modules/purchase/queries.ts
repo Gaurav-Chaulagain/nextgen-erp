@@ -1,6 +1,7 @@
 import { getDb } from "@/lib/db";
 import Decimal from "decimal.js";
 import type { PurchaseOrderStatus } from "@/generated/prisma/client";
+import { serializeForClient } from "@/lib/utils";
 import {
   pendingPaymentSchema,
   purchaseOrderSchema,
@@ -116,10 +117,10 @@ export async function getPurchaseOrders(opts: GetPurchaseOrdersOptions = {}) {
     db.purchaseOrder.count({ where }),
   ]);
 
-  return {
+  return serializeForClient({
     data: orders.map((po) => mapPurchaseOrder(po)),
     pagination: { page, pageSize, total },
-  };
+  });
 }
 
 export async function getPOById(id: string) {
@@ -140,7 +141,7 @@ export async function getPOById(id: string) {
     orderBy: { paymentDate: "asc" },
   });
 
-  return mapPurchaseOrder(po, payments);
+  return serializeForClient(mapPurchaseOrder(po, payments));
 }
 
 export async function getPurchaseStats() {
@@ -170,11 +171,13 @@ export async function getPurchaseStats() {
     return balance.greaterThan(0) ? sum.plus(balance) : sum;
   }, new Decimal(0));
 
-  return purchaseStatsSchema.parse({
-    thisMonthTotal: thisMonthTotal.toString(),
-    pendingPayments: pendingPayments.toString(),
-    activeVendors,
-  });
+  return serializeForClient(
+    purchaseStatsSchema.parse({
+      thisMonthTotal: thisMonthTotal.toString(),
+      pendingPayments: pendingPayments.toString(),
+      activeVendors,
+    })
+  );
 }
 
 export async function getSuppliers(search?: string, page = 1, pageSize = 25) {
@@ -214,10 +217,10 @@ export async function getSuppliers(search?: string, page = 1, pageSize = 25) {
     })
   );
 
-  return {
+  return serializeForClient({
     data: supplierBalances,
     pagination: { page, pageSize, total },
-  };
+  });
 }
 
 export async function getSupplierById(id: string) {
@@ -225,10 +228,10 @@ export async function getSupplierById(id: string) {
   const supplier = await db.supplier.findUnique({ where: { id } });
   if (!supplier) return null;
 
-  return {
+  return serializeForClient({
     ...mapSupplier(supplier),
     ledger: await getVendorLedger(id),
-  };
+  });
 }
 
 export async function getPendingPayments() {
@@ -242,7 +245,7 @@ export async function getPendingPayments() {
     orderBy: { orderDate: "asc" },
   });
 
-  return orders
+  const pending = orders
     .map((po) => {
       const total = toDecimal(po.totalAmount);
       const paidAmount = toDecimal(po.paidAmount);
@@ -263,6 +266,8 @@ export async function getPendingPayments() {
         daysOverdue,
       })
     );
+
+  return serializeForClient(pending);
 }
 
 export async function getVendorLedger(supplierId: string, dateFrom?: Date, dateTo?: Date) {
@@ -280,7 +285,7 @@ export async function getVendorLedger(supplierId: string, dateFrom?: Date, dateT
     orderBy: [{ entryDate: "asc" }, { createdAt: "asc" }],
   });
 
-  return entries.map((entry) => {
+  const mapped = entries.map((entry) => {
     const credit = entry.entryType === "CREDIT" ? entry.amount : new Decimal(0);
     const debit = entry.entryType === "DEBIT" ? entry.amount : new Decimal(0);
 
@@ -294,6 +299,8 @@ export async function getVendorLedger(supplierId: string, dateFrom?: Date, dateT
       entryType: entry.entryType,
     });
   });
+
+  return serializeForClient(mapped);
 }
 
 export async function getActiveProducts() {
@@ -308,7 +315,7 @@ export async function getActiveProducts() {
     orderBy: { name: "asc" },
   });
 
-  return products.map((p) => ({
+  const mapped = products.map((p) => ({
     id: p.id,
     code: p.code,
     name: p.name,
@@ -318,5 +325,26 @@ export async function getActiveProducts() {
       purchasePrice: v.purchasePrice.toString(),
     })),
   }));
+
+  return serializeForClient(mapped);
+}
+
+export async function getPurchaseReturns(supplierId?: string) {
+  const db = await getDb();
+  const where: any = {};
+  if (supplierId) where.supplierId = supplierId;
+
+  const returns = await db.purchaseReturn.findMany({
+    where,
+    include: {
+      supplier: true,
+      items: {
+        include: { product: true },
+      },
+    },
+    orderBy: { returnDate: "desc" },
+  });
+
+  return serializeForClient(returns);
 }
 

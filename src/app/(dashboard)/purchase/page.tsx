@@ -6,7 +6,8 @@ import { PurchaseOrderTable } from "@/components/purchase/PurchaseOrderTable";
 import { SupplierListTable } from "@/components/purchase/SupplierListTable";
 import { AddSupplierModal } from "@/components/purchase/AddSupplierModal";
 import { PurchaseStats } from "@/components/purchase/PurchaseStats";
-import { getPurchaseOrders, getPurchaseStats, getSuppliers } from "@/modules/purchase/queries";
+import { PurchaseReturnsTab } from "@/components/purchase/PurchaseReturnsTab";
+import { getPurchaseOrders, getPurchaseStats, getSuppliers, getPurchaseReturns } from "@/modules/purchase/queries";
 import { getCurrentUser } from "@/auth/session";
 
 type PurchasePageProps = {
@@ -19,10 +20,11 @@ export default async function PurchasePage({ searchParams }: PurchasePageProps) 
   const params = await searchParams;
   const tab = params?.tab ?? "orders";
 
-  const [ordersResp, stats, suppliersResp] = await Promise.all([
+  const [ordersResp, stats, suppliersResp, returns] = await Promise.all([
     getPurchaseOrders(),
     getPurchaseStats(),
     getSuppliers(),
+    getPurchaseReturns(),
   ]);
   
   const orders = ordersResp.data;
@@ -30,6 +32,7 @@ export default async function PurchasePage({ searchParams }: PurchasePageProps) 
   const tabs = [
     { id: "orders", label: "Purchase Orders" },
     { id: "suppliers", label: "Suppliers (Vendors)" },
+    { id: "returns", label: "Purchase Returns" },
   ];
 
   return (
@@ -90,6 +93,10 @@ export default async function PurchasePage({ searchParams }: PurchasePageProps) 
           </div>
           <SupplierListTable suppliers={suppliersResp.data as any} userId={userId} />
         </section>
+      )}
+
+      {tab === "returns" && (
+        <PurchaseReturnsTab returns={returns} userId={userId} />
       )}
     </div>
   );

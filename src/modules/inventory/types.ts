@@ -22,10 +22,10 @@ export const inventoryItemSchema = z.object({
 export type InventoryItemSchema = z.infer<typeof inventoryItemSchema>;
 
 export const createInventoryItemSchema = z.object({
-  name: z.string().min(1),
-  categoryId: z.string().min(1),
-  brandId: z.string().min(1),
-  warehouseId: z.string().min(1),
+  name: z.string().min(1, "Product name is required"),
+  categoryId: z.string().min(1, "Please select a category"),
+  brandId: z.string().min(1, "Please select a brand"),
+  warehouseId: z.string().min(1, "Please select a warehouse"),
   unit: z.nativeEnum(Unit),
   description: z.string().optional(),
   minStockLevel: z.number().int().nonnegative().default(0),
@@ -34,7 +34,7 @@ export const createInventoryItemSchema = z.object({
   variants: z
     .array(
       z.object({
-        supplierId: z.string().min(1),
+        supplierId: z.string().min(1, "Please select a supplier"),
         // Accept number or string for price values and normalize server-side to Decimal
         purchasePrice: z.union([z.string(), z.number()]),
         retailPrice: z.union([z.string(), z.number()]),

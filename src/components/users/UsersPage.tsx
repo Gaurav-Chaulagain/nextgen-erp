@@ -7,11 +7,13 @@ import { DataTable } from "../shared/DataTable";
 import { StatusBadge } from "../shared/StatusBadge";
 import { ColumnDef } from "@tanstack/react-table";
 import { Role, ROLE_LABELS, INVOICE_COLORS } from "../../lib/constants";
-import { Users, UserPlus, ShieldAlert, KeyRound, ShieldCheck, Lock, Activity, Pencil } from "lucide-react";
+import { Users, UserPlus, ShieldAlert, KeyRound, ShieldCheck, Lock, Activity, Pencil, Trash2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { AddUserModal } from "./AddUserModal";
 import { EditUserModal } from "./EditUserModal";
 import { AuditLogViewer } from "./AuditLogViewer";
+import { deleteUserAction } from "../../modules/users/actions";
+import { toast } from "sonner";
 
 interface UserItem {
   id: string;
@@ -67,6 +69,19 @@ export function UsersPage({ initialUsers, sessionUser }: UsersPageProps) {
   };
 
   const isSuperAdmin = sessionUser.role === "SUPERADMIN";
+  const isSuperAdminOrOwner = sessionUser.role === "SUPERADMIN" || sessionUser.role === "OWNER";
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      const res = await deleteUserAction(userId);
+      if (res.success) {
+        toast.success("User deleted successfully.");
+        handleRefresh();
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete user.");
+    }
+  };
 
   // Summary Metrics
   const activeCount = usersList.filter(u => u.isActive).length;
@@ -158,21 +173,43 @@ export function UsersPage({ initialUsers, sessionUser }: UsersPageProps) {
       id: "actions",
       header: "Operations",
       cell: ({ row }) => {
-        const canEdit = isSuperAdmin || row.original.id === sessionUser.id;
-        if (!canEdit) return null;
+        const canEdit = isSuperAdminOrOwner || row.original.id === sessionUser.id;
+        const canDelete = isSuperAdminOrOwner && row.original.id !== sessionUser.id;
+        
+        if (!canEdit && !canDelete) return null;
+        
         return (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setSelectedUser(row.original);
-              setIsEditOpen(true);
-            }}
-            className="h-8 w-8 p-0 rounded-lg border-zinc-200 dark:border-zinc-800 hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all"
-            title="Edit user credentials"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center gap-1.5">
+            {canEdit && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setSelectedUser(row.original);
+                  setIsEditOpen(true);
+                }}
+                className="h-8 w-8 p-0 rounded-lg border-zinc-200 dark:border-zinc-800 hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all inline-flex items-center justify-center"
+                title="Edit user credentials"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (confirm(`Are you sure you want to delete user ${row.original.name}?`)) {
+                    handleDeleteUser(row.original.id);
+                  }
+                }}
+                className="h-8 w-8 p-0 rounded-lg border-zinc-200 dark:border-zinc-800 text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all inline-flex items-center justify-center"
+                title="Delete user"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
         );
       },
     },
@@ -286,7 +323,7 @@ export function UsersPage({ initialUsers, sessionUser }: UsersPageProps) {
         description="Configure branch personnel logins, map role security privileges, and inspect immutable system audit logs."
         actions={
           <div className="flex items-center gap-3">
-            {isSuperAdmin && (
+            {isSuperAdminOrOwner && (
               <Button
                 onClick={() => setIsAddOpen(true)}
                 className="h-10 px-4 rounded-xl flex items-center gap-2 font-bold shadow-md shadow-primary/20"
@@ -313,7 +350,7 @@ export function UsersPage({ initialUsers, sessionUser }: UsersPageProps) {
           Personnel Access Controls
         </button>
 
-        {isSuperAdmin && (
+        {isSuperAdminOrOwner && (
           <button
             onClick={() => setActiveTab("audit")}
             className={`pb-3 px-4 text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 ${

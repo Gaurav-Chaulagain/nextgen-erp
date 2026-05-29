@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { getPurchaseLookups, createPurchaseOrder, submitPurchaseOrder } from "@/modules/purchase/actions";
 import { createPurchaseOrderSchema } from "@/modules/purchase/types";
 import { toast } from "sonner";
+import { Plus, Trash2, Calendar, FileText, ShoppingBag } from "lucide-react";
 
 interface LineItem {
   id: string;
@@ -15,6 +16,7 @@ interface LineItem {
   quantity: number;
   unit: string;
   unitPrice: number;
+  notes: string;
 }
 
 interface NewPurchaseOrderFormProps {
@@ -28,8 +30,8 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
   const [expectedDelivery, setExpectedDelivery] = useState("");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<LineItem[]>([]);
-  const [discount, setDiscount] = useState(0);
-  const [applyVat, setApplyVat] = useState(true);
+  const [discount, setDiscount] = useState<number>(0);
+  const [applyVat, setApplyVat] = useState<boolean>(true);
   const [saving, setSaving] = useState(false);
 
   // Lookups data
@@ -53,10 +55,6 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
     }
   }, [open]);
 
-  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-  const tax = applyVat ? Math.round((subtotal - discount) * 0.13 * 100) / 100 : 0;
-  const total = subtotal - discount + tax;
-
   const addItem = () => {
     setItems([
       ...items,
@@ -66,6 +64,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
         quantity: 1,
         unit: "PCS",
         unitPrice: 0,
+        notes: "",
       },
     ]);
   };
@@ -78,10 +77,6 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
     const product = products.find((p) => p.id === selectedProductId);
     if (!product) return;
 
-    // Check if supplier-specific price exists in variants
-    const variant = product.variants?.find((v: any) => v.supplierId === supplierId);
-    const costPrice = variant ? parseFloat(variant.purchasePrice) : 0;
-
     setItems(
       items.map((item) =>
         item.id === itemId
@@ -89,7 +84,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
               ...item,
               productId: selectedProductId,
               unit: product.unit,
-              unitPrice: costPrice,
+              unitPrice: Number(product.purchasePrice || 0),
             }
           : item
       )
@@ -99,6 +94,11 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
   const updateItem = (id: string, updates: Partial<LineItem>) => {
     setItems(items.map((item) => (item.id === id ? { ...item, ...updates } : item)));
   };
+
+  // Calculations
+  const subtotal = items.reduce((sum, item) => sum + (Number(item.quantity || 0) * Number(item.unitPrice || 0)), 0);
+  const tax = applyVat ? (subtotal - discount) * 0.13 : 0;
+  const total = subtotal - discount + tax;
 
   const handleCreate = async (shouldSubmit: boolean) => {
     if (!supplierId) {
@@ -123,6 +123,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
         productId: item.productId,
         orderedQty: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
+        notes: item.notes || undefined,
       })),
       discountAmount: Number(discount),
       taxAmount: Number(tax),
@@ -158,9 +159,9 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
       setPoDate(new Date().toISOString().split("T")[0]);
       setExpectedDelivery("");
       setNotes("");
-      setItems([]);
       setDiscount(0);
       setApplyVat(true);
+      setItems([]);
 
       router.refresh();
     } catch (err: any) {
@@ -176,83 +177,114 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
       <Button onClick={() => setOpen(true)}>+ New Purchase Order</Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Create Purchase Order</DialogTitle>
+        <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-hidden bg-white border border-zinc-200 text-zinc-900 rounded-2xl shadow-xl">
+          <DialogHeader className="border-b border-zinc-200 pb-3">
+            <DialogTitle className="text-xl font-bold text-zinc-900 flex items-center gap-2">
+              <ShoppingBag size={20} className="text-blue-600" /> Create Purchase Order
+            </DialogTitle>
+            <DialogDescription className="text-zinc-500 text-xs mt-0.5">
+              Draft or submit a new procurement request with material quantities, unit prices, and financial terms.
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto space-y-4">
+          <div className="flex-grow overflow-y-auto py-4 space-y-5 pr-1">
             {/* Header Section */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium block mb-1">Supplier *</label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-5 rounded-xl border border-zinc-200 bg-zinc-50/50 shadow-sm">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">Supplier *</label>
                 <select
                   value={supplierId}
                   onChange={(e) => {
                     setSupplierId(e.target.value);
-                    // Reset items if supplier changes to recalculate correct cost prices
                     setItems([]);
                   }}
-                  className="w-full border rounded-md px-3 py-2 text-sm bg-white dark:bg-zinc-950"
+                  className="w-full h-10 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm"
                 >
                   <option value="">-- Select Supplier --</option>
                   {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} {s.panNumber ? `(PAN: ${s.panNumber})` : ""}
-                    </option>
+                    <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="text-sm font-medium block mb-1">PO Date *</label>
-                <Input type="date" value={poDate} onChange={(e) => setPoDate(e.target.value)} />
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">PO Date *</label>
+                <Input
+                  type="date"
+                  value={poDate}
+                  onChange={(e) => setPoDate(e.target.value)}
+                  className="bg-white border-zinc-300 text-zinc-900 h-10 shadow-sm focus:border-blue-500 focus:ring-blue-500/20"
+                />
               </div>
-              <div>
-                <label className="text-sm font-medium block mb-1">Expected Delivery</label>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">Expected Delivery</label>
                 <Input
                   type="date"
                   value={expectedDelivery}
                   onChange={(e) => setExpectedDelivery(e.target.value)}
+                  className="bg-white border-zinc-300 text-zinc-900 h-10 shadow-sm focus:border-blue-500 focus:ring-blue-500/20"
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium block mb-1">Payment Method Context</label>
-                <Input placeholder="Payment Terms / Cash Account" disabled value="ACCOUNTS PAYABLE" />
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">Accounting Context</label>
+                <Input
+                  placeholder="ACCOUNTS PAYABLE"
+                  disabled
+                  value="ACCOUNTS PAYABLE"
+                  className="bg-zinc-50 border-zinc-200 text-zinc-500 h-10 cursor-not-allowed shadow-none"
+                />
               </div>
             </div>
 
-            <div>
-              <label className="text-sm font-medium block mb-1">Notes / Terms</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">Notes / Terms</label>
               <Input
-                placeholder="Purchase terms, special handling instructions..."
+                placeholder="Purchase terms, special shipping instructions, delivery coordinator..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
+                className="bg-white border-zinc-300 text-zinc-900 h-10 shadow-sm focus:border-blue-500 focus:ring-blue-500/20"
               />
             </div>
 
             {/* Line Items Section */}
-            <div className="border rounded-lg p-4 space-y-3 bg-zinc-50/50 dark:bg-zinc-900/30">
-              <div className="flex justify-between items-center">
-                <h3 className="font-semibold text-sm uppercase tracking-wider text-zinc-600">Line Items</h3>
-                <Button variant="outline" size="sm" onClick={addItem} disabled={!supplierId}>
-                  + Add Item
+            <div className="border border-zinc-200 rounded-xl p-5 space-y-4 bg-zinc-50/20">
+              <div className="flex justify-between items-center pb-2 border-b border-zinc-200">
+                <h3 className="font-bold text-xs uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
+                  <FileText size={14} className="text-blue-600" /> Dispatched Supply Demands
+                </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={addItem}
+                  disabled={!supplierId}
+                  className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 shadow-sm"
+                >
+                  <Plus size={14} className="mr-1" /> Add Procurement Line
                 </Button>
               </div>
 
               {!supplierId ? (
-                <p className="text-xs text-zinc-500 italic text-center py-2">Please select a supplier first to add items</p>
+                <div className="text-center py-8 border border-dashed border-zinc-300 rounded-lg bg-white/50">
+                  <p className="text-sm text-zinc-400 italic">Please select a supplier first to configure line item demands</p>
+                </div>
               ) : items.length === 0 ? (
-                <p className="text-xs text-zinc-500 text-center py-2">No items added yet</p>
+                <div className="text-center py-8 border border-dashed border-zinc-300 rounded-lg bg-white/50">
+                  <p className="text-sm text-zinc-400 italic">No lines added yet. Click &quot;Add Procurement Line&quot; to define materials.</p>
+                </div>
               ) : (
-                <div className="space-y-2">
-                  {items.map((item) => (
-                    <div key={item.id} className="flex gap-2 items-end flex-wrap sm:flex-nowrap border-b pb-2 sm:border-0 sm:pb-0">
-                      <div className="flex-1 min-w-[200px]">
-                        <label className="text-xs text-zinc-500 mb-0.5 block">Product *</label>
+                <div className="space-y-3">
+                  {items.map((item, index) => (
+                    <div key={item.id} className="grid grid-cols-12 gap-3 items-end p-4 border border-zinc-200 rounded-xl bg-white relative shadow-sm hover:border-zinc-300 transition-colors duration-150">
+                      
+                      {/* Product select */}
+                      <div className="col-span-12 sm:col-span-3">
+                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Product *</label>
                         <select
                           value={item.productId}
                           onChange={(e) => handleProductChange(item.id, e.target.value)}
-                          className="w-full border rounded-md px-3 py-2 text-sm bg-white dark:bg-zinc-950"
+                          className="w-full h-9 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
                         >
                           <option value="">-- Select Product --</option>
                           {products.map((p) => (
@@ -262,95 +294,153 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                           ))}
                         </select>
                       </div>
-                      <div className="w-20">
-                        <label className="text-xs text-zinc-500 mb-0.5 block">Qty</label>
+
+                      {/* Quantity input */}
+                      <div className="col-span-6 sm:col-span-1.5">
+                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Quantity *</label>
                         <Input
                           type="number"
-                          placeholder="Qty"
+                          placeholder="0"
                           value={item.quantity}
                           min={1}
                           onChange={(e) => updateItem(item.id, { quantity: Math.max(1, parseInt(e.target.value) || 0) })}
+                          className="h-9 bg-white border-zinc-300 text-zinc-900 text-xs shadow-sm focus:border-blue-500"
                         />
                       </div>
-                      <div className="w-20">
-                        <label className="text-xs text-zinc-500 mb-0.5 block">Unit</label>
-                        <Input placeholder="Unit" value={item.unit} disabled className="bg-zinc-100" />
+
+                      {/* Unit label (read-only) */}
+                      <div className="col-span-6 sm:col-span-1">
+                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Unit</label>
+                        <Input
+                          placeholder="Unit"
+                          value={item.unit}
+                          disabled
+                          className="h-9 bg-zinc-50 border-zinc-250 text-zinc-500 text-xs shadow-none cursor-not-allowed"
+                        />
                       </div>
-                      <div className="w-28">
-                        <label className="text-xs text-zinc-500 mb-0.5 block">Cost Price</label>
+
+                      {/* Unit Price input */}
+                      <div className="col-span-6 sm:col-span-2">
+                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Unit Price (NPR) *</label>
                         <Input
                           type="number"
-                          placeholder="Price"
-                          value={item.unitPrice}
+                          placeholder="0.00"
+                          value={item.unitPrice || ""}
                           min={0}
                           onChange={(e) => updateItem(item.id, { unitPrice: Math.max(0, parseFloat(e.target.value) || 0) })}
+                          className="h-9 bg-white border-zinc-300 text-zinc-900 text-xs shadow-sm focus:border-blue-500"
                         />
                       </div>
-                      <div className="w-28 text-right self-center pb-2">
-                        <span className="text-xs text-zinc-500 block mb-0.5">Line Total</span>
-                        <span className="font-semibold text-sm">
-                          NPR {(item.quantity * item.unitPrice).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </span>
+
+                      {/* Dynamic Line Total */}
+                      <div className="col-span-6 sm:col-span-1.5">
+                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Total (NPR)</label>
+                        <Input
+                          value={(Number(item.quantity || 0) * Number(item.unitPrice || 0)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          disabled
+                          className="h-9 bg-zinc-50 border-zinc-250 text-zinc-800 font-semibold text-xs shadow-none cursor-not-allowed text-right"
+                        />
                       </div>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="mb-0.5"
-                        onClick={() => removeItem(item.id)}
-                      >
-                        Remove
-                      </Button>
+
+                      {/* Line Specifications */}
+                      <div className="col-span-10 sm:col-span-2.5">
+                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Line Specifications / Notes</label>
+                        <Input
+                          placeholder="e.g. thickness, color spec..."
+                          value={item.notes}
+                          onChange={(e) => updateItem(item.id, { notes: e.target.value })}
+                          className="h-9 bg-white border-zinc-300 text-zinc-900 text-xs shadow-sm focus:border-blue-500"
+                        />
+                      </div>
+
+                      {/* Action */}
+                      <div className="col-span-2 sm:col-span-0.5 flex justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                          onClick={() => removeItem(item.id)}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Totals Section */}
-            <div className="border rounded-lg p-4 space-y-2.5 bg-zinc-50 dark:bg-zinc-900 border-dashed">
-              <div className="flex justify-between text-sm">
-                <span className="text-zinc-600">Subtotal:</span>
-                <span className="font-medium">NPR {subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <label className="text-zinc-600">Discount Amount:</label>
-                <Input
-                  type="number"
-                  value={discount}
-                  min={0}
-                  max={subtotal}
-                  onChange={(e) => setDiscount(Math.min(subtotal, Math.max(0, parseFloat(e.target.value) || 0)))}
-                  className="w-32 h-8"
-                />
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="text-zinc-600">Apply VAT (13%):</span>
-                  <input
-                    type="checkbox"
-                    checked={applyVat}
-                    onChange={(e) => setApplyVat(e.target.checked)}
-                    className="rounded text-blue-600 focus:ring-blue-500"
-                  />
+            {/* Totals & Calculations Grid */}
+            {items.length > 0 && (
+              <div className="flex justify-end p-5 rounded-xl border border-zinc-200 bg-zinc-50/50 shadow-sm">
+                <div className="w-80 space-y-3 text-sm text-zinc-800">
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-500 font-medium">Subtotal:</span>
+                    <span className="font-bold text-zinc-800">
+                      NPR {subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center gap-3">
+                    <span className="text-zinc-500 font-medium">Discount (NPR):</span>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={discount || ""}
+                      onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="w-32 h-8 text-right bg-white border-zinc-300 text-zinc-900 shadow-sm"
+                    />
+                  </div>
+
+                  <div className="flex justify-between items-center border-t border-zinc-200/60 pt-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-zinc-500 font-medium">Apply VAT (13%):</span>
+                      <input
+                        type="checkbox"
+                        checked={applyVat}
+                        onChange={(e) => setApplyVat(e.target.checked)}
+                        className="rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </div>
+                    <span className="font-semibold text-zinc-800">
+                      NPR {tax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between font-bold text-base border-t border-zinc-200 pt-2 text-zinc-900">
+                    <span>Grand Total:</span>
+                    <span className="text-blue-600 font-bold">
+                      NPR {total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
                 </div>
-                <span className="font-medium">NPR {tax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
               </div>
-              <div className="flex justify-between font-bold text-base border-t pt-2 text-zinc-900 dark:text-zinc-50">
-                <span>Grand Total:</span>
-                <span>NPR {total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-              </div>
-            </div>
+            )}
           </div>
 
-          <DialogFooter className="border-t pt-4">
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
+          <DialogFooter className="border-t border-zinc-200 pt-4 flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={saving}
+              className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 shadow-sm"
+            >
               Cancel
             </Button>
-            <Button onClick={() => handleCreate(false)} disabled={saving || !supplierId} variant="outline" className="border-zinc-300">
+            <Button
+              onClick={() => handleCreate(false)}
+              disabled={saving || !supplierId}
+              variant="outline"
+              className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 shadow-sm"
+            >
               {saving ? "Processing..." : "Save Draft"}
             </Button>
-            <Button onClick={() => handleCreate(true)} disabled={saving || !supplierId} className="bg-blue-600 hover:bg-blue-700 text-white">
-              {saving ? "Processing..." : "Submit PO"}
+            <Button
+              onClick={() => handleCreate(true)}
+              disabled={saving || !supplierId}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-md"
+            >
+              {saving ? "Processing..." : "Confirm & Submit PO"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -359,3 +449,4 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
   );
 }
 
+export default NewPurchaseOrderForm;

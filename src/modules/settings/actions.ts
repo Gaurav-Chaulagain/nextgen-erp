@@ -187,6 +187,59 @@ export async function updateWarehouseAction(
   return { success: true };
 }
 
+export async function deleteWarehouseAction(id: string) {
+  const user = await getCurrentUser();
+  if (!user || (user.role !== "SUPERADMIN" && user.role !== "OWNER")) {
+    throw new Error("Access Denied. Only Super Admins and Business Owners can delete warehouses.");
+  }
+
+  const db = await getDb();
+  
+  // Fetch warehouse with related entities to check references
+  const wh = await db.warehouse.findUnique({
+    where: { id },
+    include: {
+      stockEntries: { take: 1 },
+      stockTransactions: { take: 1 },
+      salesItems: { take: 1 },
+      salesReturnItems: { take: 1 },
+    }
+  });
+
+  if (!wh) {
+    throw new Error("Warehouse not found.");
+  }
+
+  const hasRelations = 
+    wh.stockEntries.length > 0 ||
+    wh.stockTransactions.length > 0 ||
+    wh.salesItems.length > 0 ||
+    wh.salesReturnItems.length > 0;
+
+  if (hasRelations) {
+    throw new Error("This warehouse is linked to existing stock records, invoices, or transactions. It cannot be hard-deleted. Please deactivate it instead.");
+  }
+
+  await db.warehouse.delete({
+    where: { id }
+  });
+
+  // Log Audit Log
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      action: "DELETE",
+      module: "WAREHOUSE",
+      recordId: id,
+      oldValues: wh as any,
+      ipAddress: "Server-Action",
+    },
+  });
+
+  revalidatePath("/settings");
+  return { success: true };
+}
+
 // Fiscal Year Actions
 export async function createFiscalYearAction(data: {
   name: string;

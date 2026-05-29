@@ -20,8 +20,8 @@ export async function createUserAction(formData: {
     throw new Error("Unauthorized. Please log in.");
   }
 
-  if (sessionUser.role !== "SUPERADMIN") {
-    throw new Error("Access Denied. Only Super Admins can manage users.");
+  if (sessionUser.role !== "SUPERADMIN" && sessionUser.role !== "OWNER") {
+    throw new Error("Access Denied. Only Super Admins and Business Owners can manage users.");
   }
 
   if (!formData.name || !formData.email || !formData.role) {
@@ -109,8 +109,8 @@ export async function updateUserAction(
     throw new Error("Unauthorized. Please log in.");
   }
 
-  if (sessionUser.role !== "SUPERADMIN") {
-    throw new Error("Access Denied. Only Super Admins can manage users.");
+  if (sessionUser.role !== "SUPERADMIN" && sessionUser.role !== "OWNER") {
+    throw new Error("Access Denied. Only Super Admins and Business Owners can manage users.");
   }
 
   const db = await getDb();
@@ -168,10 +168,86 @@ export async function updateUserAction(
   return { success: true };
 }
 
+export async function deleteUserAction(userId: string) {
+  const sessionUser = await getCurrentUser();
+
+  if (!sessionUser) {
+    throw new Error("Unauthorized. Please log in.");
+  }
+
+  if (sessionUser.role !== "SUPERADMIN" && sessionUser.role !== "OWNER") {
+    throw new Error("Access Denied. Only Super Admins and Business Owners can delete users.");
+  }
+
+  if (sessionUser.id === userId) {
+    throw new Error("Security Guardrail: You cannot delete your own active session account.");
+  }
+
+  const db = await getDb();
+
+  // Find if user exists and fetch relations to check constraints
+  const targetUser = await db.user.findUnique({
+    where: { id: userId },
+    include: {
+      purchaseOrders: { take: 1 },
+      salesInvoices: { take: 1 },
+      projects: { take: 1 },
+      payments: { take: 1 },
+      ledgerEntries: { take: 1 },
+      cashBookEntries: { take: 1 },
+      expenses: { take: 1 },
+    }
+  });
+
+  if (!targetUser) {
+    throw new Error("User account not found.");
+  }
+
+  const hasRelations = 
+    targetUser.purchaseOrders.length > 0 ||
+    targetUser.salesInvoices.length > 0 ||
+    targetUser.projects.length > 0 ||
+    targetUser.payments.length > 0 ||
+    targetUser.ledgerEntries.length > 0 ||
+    targetUser.cashBookEntries.length > 0 ||
+    targetUser.expenses.length > 0;
+
+  if (hasRelations) {
+    throw new Error("This user has active operational records (sales, purchases, expenses, or ledgers) linked to their account. They cannot be hard-deleted. Please deactivate their account instead to preserve audit history.");
+  }
+
+  // Safe delete: delete associated password resets and audit logs first, then user
+  await db.$transaction([
+    db.passwordResetToken.deleteMany({ where: { userId } }),
+    db.auditLog.deleteMany({ where: { userId } }),
+    db.user.delete({ where: { id: userId } }),
+  ]);
+
+  // Log in active session's audit log
+  await db.auditLog.create({
+    data: {
+      userId: sessionUser.id,
+      action: "DELETE",
+      module: "USER",
+      recordId: userId,
+      oldValues: {
+        id: targetUser.id,
+        name: targetUser.name,
+        email: targetUser.email,
+        role: targetUser.role,
+      },
+      ipAddress: "Server-Action",
+    }
+  });
+
+  revalidatePath("/users");
+  return { success: true };
+}
+
 export async function fetchAuditLogsAction(filters: import("./queries").AuditLogFilters) {
   const sessionUser = await getCurrentUser();
-  if (!sessionUser || sessionUser.role !== "SUPERADMIN") {
-    throw new Error("Unauthorized. Only Super Admins can inspect audit logs.");
+  if (!sessionUser || (sessionUser.role !== "SUPERADMIN" && sessionUser.role !== "OWNER")) {
+    throw new Error("Unauthorized. Only Super Admins and Business Owners can inspect audit logs.");
   }
   const { getAuditLogs } = await import("./queries");
   return getAuditLogs(filters);
@@ -179,8 +255,8 @@ export async function fetchAuditLogsAction(filters: import("./queries").AuditLog
 
 export async function fetchAuditLogMetadataAction() {
   const sessionUser = await getCurrentUser();
-  if (!sessionUser || sessionUser.role !== "SUPERADMIN") {
-    throw new Error("Unauthorized. Only Super Admins can query audit log parameters.");
+  if (!sessionUser || (sessionUser.role !== "SUPERADMIN" && sessionUser.role !== "OWNER")) {
+    throw new Error("Unauthorized. Only Super Admins and Business Owners can query audit log parameters.");
   }
   const { getAuditLogModules, getAuditLogActions, getUsersList } = await import("./queries");
   const [modules, actions, users] = await Promise.all([

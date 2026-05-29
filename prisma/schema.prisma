@@ -157,6 +157,9 @@ model User {
   stockTransactions    StockTransaction[]
   auditLogs            AuditLog[]
   passwordResetTokens  PasswordResetToken[]
+  expenses             Expense[]
+  purchaseReturns      PurchaseReturn[]
+  salesReturns         SalesReturn[]
 
   @@index([email])
   @@index([role])
@@ -225,6 +228,8 @@ model Product {
   stockTransactions StockTransaction[]
   purchaseItems     PurchaseOrderItem[]
   salesItems        SalesInvoiceItem[]
+  purchaseReturnItems PurchaseReturnItem[]
+  salesReturnItems    SalesReturnItem[]
 
   @@index([categoryId])
   @@index([brandId])
@@ -283,6 +288,7 @@ model Supplier {
   // Relations
   productVariants ProductVariant[]
   purchaseOrders  PurchaseOrder[]
+  purchaseReturns PurchaseReturn[]
 
   @@index([isActive])
   @@index([panNumber])
@@ -313,6 +319,7 @@ model Customer {
   // Relations
   salesInvoices SalesInvoice[]
   projects      Project[] /// Projects where this customer is the client
+  salesReturns  SalesReturn[]
 
   @@index([customerType])
   @@index([isActive])
@@ -336,6 +343,7 @@ model Warehouse {
   stockEntries      InventoryStock[]
   stockTransactions StockTransaction[]
   salesItems        SalesInvoiceItem[]
+  salesReturnItems  SalesReturnItem[]
 
   @@map("warehouses")
 }
@@ -488,6 +496,7 @@ model SalesInvoice {
   creator        User               @relation(fields: [createdBy], references: [id])
   items          SalesInvoiceItem[]
   projectBilling ProjectBilling[]
+  salesReturns   SalesReturn[]
 
   @@index([customerId])
   @@index([projectId])
@@ -795,3 +804,129 @@ model PasswordResetToken {
   @@index([expiresAt])
   @@map("password_reset_tokens")
 }
+
+// ============================================================================
+// 25. EXPENSE
+// ============================================================================
+
+model Expense {
+  id           String      @id @default(cuid())
+  expenseCode  String      @unique @map("expense_code")
+  category     String      // Shop Rent, Transport Cost, Staff Salary, Miscellaneous
+  amount       Decimal     @db.Decimal(14, 2)
+  expenseDate  DateTime    @map("expense_date")
+  paymentMethod PaymentMode @map("payment_method")
+  notes        String?
+  createdBy    String      @map("created_by")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@index([expenseDate])
+  @@index([category])
+  @@index([createdBy])
+  @@map("expenses")
+}
+
+// ============================================================================
+// 26. PURCHASE RETURN
+// ============================================================================
+
+model PurchaseReturn {
+  id           String             @id @default(cuid())
+  returnNumber String             @unique @map("return_number") // PRN-XXXX
+  supplierId   String             @map("supplier_id")
+  returnDate   DateTime           @map("return_date")
+  status       String             @default("PENDING") // PENDING or PROCESSED
+  totalAmount  Decimal            @db.Decimal(14, 2)
+  notes        String?
+  createdBy    String             @map("created_by")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  supplier Supplier            @relation(fields: [supplierId], references: [id])
+  creator  User                @relation(fields: [createdBy], references: [id])
+  items    PurchaseReturnItem[]
+
+  @@index([supplierId])
+  @@index([returnDate])
+  @@index([createdBy])
+  @@map("purchase_returns")
+}
+
+// ============================================================================
+// 27. PURCHASE RETURN ITEM
+// ============================================================================
+
+model PurchaseReturnItem {
+  id               String         @id @default(cuid())
+  purchaseReturnId String         @map("purchase_return_id")
+  productId        String         @map("product_id")
+  qty              Int
+  unitPrice        Decimal        @map("unit_price") @db.Decimal(12, 2)
+  totalPrice       Decimal        @map("total_price") @db.Decimal(14, 2) // qty * unitPrice
+  notes            String?
+
+  purchaseReturn PurchaseReturn @relation(fields: [purchaseReturnId], references: [id], onDelete: Cascade)
+  product        Product        @relation(fields: [productId], references: [id])
+
+  @@index([purchaseReturnId])
+  @@index([productId])
+  @@map("purchase_return_items")
+}
+
+// ============================================================================
+// 28. SALES RETURN
+// ============================================================================
+
+model SalesReturn {
+  id           String            @id @default(cuid())
+  returnNumber String            @unique @map("return_number") // SRN-XXXX
+  customerId   String            @map("customer_id")
+  invoiceId    String?           @map("invoice_id")
+  returnDate   DateTime          @map("return_date")
+  status       String            @default("PENDING") // PENDING or PROCESSED
+  refundMethod PaymentMode       @map("refund_method")
+  totalAmount  Decimal           @db.Decimal(14, 2)
+  notes        String?
+  createdBy    String            @map("created_by")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  customer Customer          @relation(fields: [customerId], references: [id])
+  invoice  SalesInvoice?     @relation(fields: [invoiceId], references: [id])
+  creator  User              @relation(fields: [createdBy], references: [id])
+  items    SalesReturnItem[]
+
+  @@index([customerId])
+  @@index([invoiceId])
+  @@index([returnDate])
+  @@index([createdBy])
+  @@map("sales_returns")
+}
+
+// ============================================================================
+// 29. SALES RETURN ITEM
+// ============================================================================
+
+model SalesReturnItem {
+  id            String      @id @default(cuid())
+  salesReturnId String      @map("sales_return_id")
+  productId     String      @map("product_id")
+  qty           Int
+  unitPrice     Decimal     @map("unit_price") @db.Decimal(12, 2)
+  totalPrice    Decimal     @map("total_price") @db.Decimal(14, 2) // qty * unitPrice
+  warehouseId   String      @map("warehouse_id")
+  notes         String?
+
+  salesReturn SalesReturn @relation(fields: [salesReturnId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id])
+  warehouse   Warehouse   @relation(fields: [warehouseId], references: [id])
+
+  @@index([salesReturnId])
+  @@index([productId])
+  @@index([warehouseId])
+  @@map("sales_return_items")
+}
+

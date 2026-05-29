@@ -20,6 +20,7 @@ import {
   Users,
   Settings,
   LogOut,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "../ui/button";
 
@@ -48,6 +49,7 @@ const navItems: NavItem[] = [
   { label: "Projects", href: "/projects", icon: Briefcase, module: "projects" },
   { label: "Ledger", href: "/ledger", icon: BookOpen, module: "ledger" },
   { label: "Cash Book", href: "/cashbook", icon: Wallet, module: "cashbook" },
+  { label: "Expenses", href: "/expenses", icon: CreditCard, module: "expenses" },
   { label: "Reports", href: "/reports", icon: BarChart3, module: "reports" },
   { label: "Users", href: "/users", icon: Users, module: "users" },
   { label: "Settings", href: "/settings", icon: Settings, module: "settings" },

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatNPR } from "@/lib/utils";
@@ -171,6 +171,9 @@ export function IssueSupplyModal({
       <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Issue Inventory Supply to Project</DialogTitle>
+          <DialogDescription className="sr-only">
+            Form modal to issue specific inventory quantities to a construction project, creating a sales invoice and decreasing stock levels.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">

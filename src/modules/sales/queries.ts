@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/db";
 import Decimal from "decimal.js";
+import { serializeForClient } from "@/lib/utils";
 import type { ChannelType, CustomerType, InvoiceStatus, InvoiceType } from "@/generated/prisma/client";
 import {
   customerLedgerEntrySchema,
@@ -133,10 +134,10 @@ export async function getSalesInvoices(opts: GetSalesInvoicesOptions = {}) {
     db.salesInvoice.count({ where }),
   ]);
 
-  return {
+  return serializeForClient({
     data: invoices.map((invoice) => mapInvoice(invoice)),
     pagination: { page, pageSize, total },
-  };
+  });
 }
 
 export async function getInvoiceById(id: string) {
@@ -158,7 +159,7 @@ export async function getInvoiceById(id: string) {
     orderBy: { paymentDate: "asc" },
   });
 
-  return mapInvoice(invoice, payments);
+  return serializeForClient(mapInvoice(invoice, payments));
 }
 
 export async function getSalesStats(dateRange: SalesDateRange = {}) {
@@ -200,13 +201,15 @@ export async function getSalesStats(dateRange: SalesDateRange = {}) {
   const returnsValue = returns.reduce((sum, entry) => sum.plus(toDecimal(entry.unitCost).times(entry.quantity)), new Decimal(0));
   const growth = lastMonthRevenue.equals(0) ? new Decimal(0) : monthlyRevenue.minus(lastMonthRevenue).div(lastMonthRevenue).times(100);
 
-  return salesStatsSchema.parse({
-    todaySales: todaySales.toString(),
-    monthlyRevenue: monthlyRevenue.toString(),
-    monthlyGrowthPercent: growth.toFixed(1),
-    outstanding: outstanding.toString(),
-    returns: returnsValue.toString(),
-  });
+  return serializeForClient(
+    salesStatsSchema.parse({
+      todaySales: todaySales.toString(),
+      monthlyRevenue: monthlyRevenue.toString(),
+      monthlyGrowthPercent: growth.toFixed(1),
+      outstanding: outstanding.toString(),
+      returns: returnsValue.toString(),
+    })
+  );
 }
 
 export async function getCustomers(search?: string, type?: CustomerType, page = 1, pageSize = 25) {
@@ -241,10 +244,10 @@ export async function getCustomers(search?: string, type?: CustomerType, page = 
     })
   );
 
-  return {
+  return serializeForClient({
     data: customerBalances,
     pagination: { page, pageSize, total },
-  };
+  });
 }
 
 export async function getCustomerById(id: string) {
@@ -255,11 +258,11 @@ export async function getCustomerById(id: string) {
   const ledger = await getCustomerLedger(id);
   const latest = ledger.at(-1);
 
-  return {
+  return serializeForClient({
     ...mapCustomer(customer),
     ledger,
     balance: latest?.balance ?? customer.openingBalance.toString(),
-  };
+  });
 }
 
 export async function getOutstandingDues() {
@@ -274,27 +277,29 @@ export async function getOutstandingDues() {
     include: { salesInvoices: { where: { status: { not: "CANCELLED" } }, orderBy: { invoiceDate: "desc" } } },
   });
 
-  return customers
-    .map((customer) => {
-      const totalBilled = customer.salesInvoices.reduce((sum, invoice) => sum.plus(invoice.totalAmount), new Decimal(0));
-      const totalPaid = customer.salesInvoices.reduce((sum, invoice) => sum.plus(invoice.paidAmount), new Decimal(0));
-      const balance = customer.salesInvoices.reduce((sum, invoice) => sum.plus(invoice.balanceAmount), new Decimal(0));
-      const lastInvoice = customer.salesInvoices[0];
-      const overdueBasis = lastInvoice?.dueDate ?? lastInvoice?.invoiceDate ?? null;
-      const daysOverdue = overdueBasis ? Math.max(0, Math.floor((Date.now() - overdueBasis.getTime()) / 86_400_000)) : 0;
+  return serializeForClient(
+    customers
+      .map((customer) => {
+        const totalBilled = customer.salesInvoices.reduce((sum, invoice) => sum.plus(invoice.totalAmount), new Decimal(0));
+        const totalPaid = customer.salesInvoices.reduce((sum, invoice) => sum.plus(invoice.paidAmount), new Decimal(0));
+        const balance = customer.salesInvoices.reduce((sum, invoice) => sum.plus(invoice.balanceAmount), new Decimal(0));
+        const lastInvoice = customer.salesInvoices[0];
+        const overdueBasis = lastInvoice?.dueDate ?? lastInvoice?.invoiceDate ?? null;
+        const daysOverdue = overdueBasis ? Math.max(0, Math.floor((Date.now() - overdueBasis.getTime()) / 86_400_000)) : 0;
 
-      return outstandingDueSchema.parse({
-        customerId: customer.id,
-        customerName: customer.name,
-        customerType: customer.customerType,
-        totalBilled: totalBilled.toString(),
-        totalPaid: totalPaid.toString(),
-        balance: balance.toString(),
-        lastInvoiceDate: lastInvoice?.invoiceDate.toISOString() ?? null,
-        daysOverdue,
-      });
-    })
-    .sort((a, b) => Number(b.balance) - Number(a.balance));
+        return outstandingDueSchema.parse({
+          customerId: customer.id,
+          customerName: customer.name,
+          customerType: customer.customerType,
+          totalBilled: totalBilled.toString(),
+          totalPaid: totalPaid.toString(),
+          balance: balance.toString(),
+          lastInvoiceDate: lastInvoice?.invoiceDate.toISOString() ?? null,
+          daysOverdue,
+        });
+      })
+      .sort((a, b) => Number(b.balance) - Number(a.balance))
+  );
 }
 
 export async function getRevenueByChannel(month: number, year: number) {
@@ -314,11 +319,13 @@ export async function getRevenueByChannel(month: number, year: number) {
     { RETAIL: new Decimal(0), WHOLESALE: new Decimal(0), PROJECT: new Decimal(0) } as Record<InvoiceType, Decimal>
   );
 
-  return revenueByChannelSchema.parse({
-    retail: totals.RETAIL.toString(),
-    wholesale: totals.WHOLESALE.toString(),
-    project: totals.PROJECT.toString(),
-  });
+  return serializeForClient(
+    revenueByChannelSchema.parse({
+      retail: totals.RETAIL.toString(),
+      wholesale: totals.WHOLESALE.toString(),
+      project: totals.PROJECT.toString(),
+    })
+  );
 }
 
 export async function getCustomerLedger(customerId: string, dateFrom?: Date, dateTo?: Date, channel?: ChannelType | "ALL") {
@@ -336,7 +343,7 @@ export async function getCustomerLedger(customerId: string, dateFrom?: Date, dat
     orderBy: [{ entryDate: "asc" }, { createdAt: "asc" }],
   });
 
-  return entries.map((entry) => {
+  const mapped = entries.map((entry) => {
     const debit = entry.entryType === "DEBIT" ? entry.amount : new Decimal(0);
     const credit = entry.entryType === "CREDIT" ? entry.amount : new Decimal(0);
 
@@ -351,43 +358,31 @@ export async function getCustomerLedger(customerId: string, dateFrom?: Date, dat
       entryType: entry.entryType,
     });
   });
+  return serializeForClient(mapped);
 }
 
 export async function getSalesReturns(page = 1, pageSize = 25) {
   const db = await getDb();
   const [returns, total] = await Promise.all([
-    db.stockTransaction.findMany({
-      where: { type: "RETURN_IN", referenceType: "SALES_RETURN" },
-      include: { product: true, warehouse: true },
+    db.salesReturn.findMany({
+      include: {
+        invoice: true,
+        customer: true,
+        items: {
+          include: { product: true, warehouse: true }
+        }
+      },
       skip: (page - 1) * pageSize,
       take: pageSize,
-      orderBy: { createdAt: "desc" },
+      orderBy: { returnDate: "desc" },
     }),
-    db.stockTransaction.count({ where: { type: "RETURN_IN", referenceType: "SALES_RETURN" } }),
+    db.salesReturn.count(),
   ]);
 
-  const invoiceIds = [...new Set(returns.map((entry) => entry.referenceId).filter(Boolean))] as string[];
-  const invoices = invoiceIds.length
-    ? await db.salesInvoice.findMany({ where: { id: { in: invoiceIds } }, select: { id: true, invoiceNumber: true } })
-    : [];
-  const invoiceById = new Map(invoices.map((invoice) => [invoice.id, invoice.invoiceNumber]));
-
-  return {
-    data: returns.map((entry) =>
-      salesReturnSchema.parse({
-        id: entry.id,
-        invoiceId: entry.referenceId,
-        invoiceNumber: entry.referenceId ? invoiceById.get(entry.referenceId) ?? null : null,
-        productName: entry.product.name,
-        warehouseName: entry.warehouse.name,
-        quantity: entry.quantity,
-        value: toDecimal(entry.unitCost).times(entry.quantity).toString(),
-        reason: entry.notes,
-        createdAt: entry.createdAt.toISOString(),
-      })
-    ),
-    pagination: { page, pageSize, total },
-  };
+  return serializeForClient({
+    data: returns,
+    pagination: { page, pageSize, total }
+  });
 }
 
 export async function getInvoiceFormLookups() {
@@ -417,7 +412,7 @@ export async function getInvoiceFormLookups() {
   );
   const balanceByCustomer = new Map(customerBalances);
 
-  return {
+  return serializeForClient({
     customers: customers.map((customer) =>
       customerOptionSchema.parse({
         id: customer.id,
@@ -453,5 +448,5 @@ export async function getInvoiceFormLookups() {
         clientId: project.clientId,
       })
     ),
-  };
+  });
 }

@@ -91,26 +91,6 @@ export default function ReportsPage() {
       ]
     },
     {
-      groupName: "Inventory Valuation & ABC Pareto",
-      desc: "Manage stock values based on standard procurement logs and classifications.",
-      reports: [
-        {
-          key: "stock_valuation",
-          title: "FIFO Stock Valuation",
-          desc: "Calculate in-hand stock value valued at chronological first-in-first-out costs.",
-          icon: FileCheck,
-          color: "text-cyan-500 bg-cyan-50 dark:bg-cyan-950/20"
-        },
-        {
-          key: "abc_analysis",
-          title: "ABC Pareto Analysis",
-          desc: "Categorize inventory into A (top 70% revenue), B (next 20%), or C (rest) shares.",
-          icon: Percent,
-          color: "text-purple-500 bg-purple-50 dark:bg-purple-950/20"
-        }
-      ]
-    },
-    {
       groupName: "Projects Site Costings",
       desc: "Evaluate construction contract profit margins and dispatch costings.",
       reports: [

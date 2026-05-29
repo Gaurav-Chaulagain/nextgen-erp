@@ -1,0 +1,19 @@
+{
+  "businessInfo": {
+    "name": "NextGen Interior And WaterProofing",
+    "pan": "122782202",
+    "address": "Gauradaha Nagarpalika-02, Jhapa, Nepal",
+    "phone": "9843146474",
+    "email": "nextgen.interior2025@gmail.com, nischaltimsina20@gmail.com"
+  },
+  "invoiceSettings": {
+    "defaultVatRate": 13,
+    "prefix": "INV-",
+    "terms": "1. 50% advance payment required for project initiation.\n2. Goods once sold are not returnable without authorization.\n3. All disputes are subject to the jurisdiction of Jhapa, Nepal.",
+    "colors": {
+      "RETAIL": "#2563eb",
+      "WHOLESALE": "#16a34a",
+      "PROJECT": "#9333ea"
+    }
+  }
+}

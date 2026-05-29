@@ -425,38 +425,30 @@ export const getSalesSummary = cache(async (dateFrom: Date | string, dateTo: Dat
       ...(channel ? { invoiceType: channel } : {})
     },
     orderBy: { invoiceDate: "asc" },
-    select: { invoiceDate: true, subtotal: true, discountAmount: true, totalAmount: true }
+    select: {
+      id: true,
+      invoiceNumber: true,
+      invoiceDate: true,
+      invoiceType: true,
+      totalAmount: true,
+      subtotal: true,
+      discountAmount: true,
+      customer: {
+        select: {
+          name: true
+        }
+      }
+    }
   });
 
-  const dailyMap = new Map<string, { amount: Decimal; count: number }>();
-
-  for (const inv of invoices) {
-    const key = inv.invoiceDate.toISOString().split("T")[0];
-    const amount = new Decimal(inv.subtotal).minus(inv.discountAmount); // Taxable subtotal
-
-    const existing = dailyMap.get(key) || { amount: new Decimal(0), count: 0 };
-    dailyMap.set(key, {
-      amount: existing.amount.plus(amount),
-      count: existing.count + 1
-    });
-  }
-
-  const results = [];
-  let currentDate = new Date(filterFrom);
-  while (currentDate <= filterTo) {
-    const key = currentDate.toISOString().split("T")[0];
-    const stats = dailyMap.get(key) || { amount: new Decimal(0), count: 0 };
-    
-    results.push({
-      date: key,
-      amount: stats.amount.toNumber(),
-      count: stats.count
-    });
-
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-
-  return results;
+  return invoices.map(inv => ({
+    id: inv.id,
+    invoiceNumber: inv.invoiceNumber,
+    date: inv.invoiceDate.toISOString().split("T")[0],
+    channel: inv.invoiceType,
+    customerName: inv.customer.name,
+    amount: new Decimal(inv.subtotal).minus(inv.discountAmount).toNumber(),
+  }));
 });
 
 // ============================================================================
@@ -610,136 +602,7 @@ export const getAgingReport = cache(async () => {
 // ============================================================================
 // 8. STOCK VALUATION REPORT (Chronological FIFO Algorithm)
 // ============================================================================
-export const getStockValuation = cache(async () => {
-  const db = await getDb();
 
-  const products = await db.product.findMany({
-    select: {
-      id: true,
-      name: true,
-      code: true,
-      variants: {
-        where: { isActive: true },
-        select: { purchasePrice: true }
-      }
-    }
-  });
-
-  const valuationRows = [];
-
-  for (const p of products) {
-    // 1. Get current net stock in-hand (sum quantity across all warehouses)
-    const stockAgg = await db.inventoryStock.aggregate({
-      where: { productId: p.id },
-      _sum: { quantity: true }
-    });
-
-    const currentQty = stockAgg._sum.quantity || 0;
-    if (currentQty <= 0) continue;
-
-    // 2. Query incoming transactions chronologically descending (newest first)
-    const inwardTrans = await db.stockTransaction.findMany({
-      where: {
-        productId: p.id,
-        type: { in: ["PURCHASE_IN", "ADJUSTMENT_IN", "RETURN_IN"] }
-      },
-      orderBy: { createdAt: "desc" },
-      select: { quantity: true, unitCost: true }
-    });
-
-    let remainingQty = new Decimal(currentQty);
-    let totalVal = new Decimal(0);
-
-    for (const t of inwardTrans) {
-      if (remainingQty.lte(0)) break;
-
-      const inwardQty = new Decimal(t.quantity);
-      const allocatedQty = Decimal.min(remainingQty, inwardQty);
-      
-      totalVal = totalVal.plus(allocatedQty.times(t.unitCost));
-      remainingQty = remainingQty.minus(allocatedQty);
-    }
-
-    // 3. Fallback: if quantity remains unpriced (e.g. from original opening stock), use master variant purchasePrice
-    if (remainingQty.greaterThan(0)) {
-      const baseCost = new Decimal(p.variants[0]?.purchasePrice || 0);
-      totalVal = totalVal.plus(remainingQty.times(baseCost));
-    }
-
-    const avgCost = totalVal.div(currentQty);
-
-    valuationRows.push({
-      productId: p.id,
-      code: p.code,
-      name: p.name,
-      currentStock: currentQty,
-      avgCost: avgCost.toNumber(),
-      totalValuation: totalVal.toNumber()
-    });
-  }
-
-  return valuationRows.sort((a, b) => b.totalValuation - a.totalValuation);
-});
-
-// ============================================================================
-// 9. ABC ANALYSIS REPORT (Revenue Pareto Category Allocation)
-// ============================================================================
-export const getABCAnalysis = cache(async () => {
-  const db = await getDb();
-
-  const invoiceItems = await db.salesInvoiceItem.findMany({
-    where: { invoice: { status: { not: "CANCELLED" } } },
-    select: {
-      productId: true,
-      qty: true,
-      unitPrice: true,
-      product: { select: { name: true, code: true } }
-    }
-  });
-
-  const productRevMap = new Map<string, { name: string; code: string; revenue: Decimal }>();
-  let totalRevenue = new Decimal(0);
-
-  for (const item of invoiceItems) {
-    const rev = new Decimal(item.unitPrice).times(item.qty);
-    totalRevenue = totalRevenue.plus(rev);
-
-    const existing = productRevMap.get(item.productId) || { name: item.product.name, code: item.product.code, revenue: new Decimal(0) };
-    productRevMap.set(item.productId, {
-      ...existing,
-      revenue: existing.revenue.plus(rev)
-    });
-  }
-
-  if (totalRevenue.lte(0)) return [];
-
-  // Sort products descending by revenue
-  const sortedProducts = Array.from(productRevMap.entries())
-    .map(([id, val]) => ({
-      id,
-      name: val.name,
-      code: val.code,
-      revenue: val.revenue.toNumber(),
-      percentage: val.revenue.div(totalRevenue).times(100).toNumber(),
-      cumulativePercentage: 0,
-      category: "C" as "A" | "B" | "C"
-    }))
-    .sort((a, b) => b.revenue - a.revenue);
-
-  // Apportion cumulative percentages and assign categories
-  let cumPerc = 0;
-  for (const sp of sortedProducts) {
-    cumPerc += sp.percentage;
-    sp.cumulativePercentage = cumPerc;
-
-    // Categories: A = top 70%, B = next 20% (up to 90%), C = rest
-    if (cumPerc <= 70) sp.category = "A";
-    else if (cumPerc <= 90) sp.category = "B";
-    else sp.category = "C";
-  }
-
-  return sortedProducts;
-});
 
 // ============================================================================
 // 10. PROJECT PROFITABILITY REPORT (Contracts Margin Costing)
@@ -941,38 +804,26 @@ export const getPurchaseSummary = cache(async (dateFrom: Date | string, dateTo: 
       status: { not: "CANCELLED" }
     },
     orderBy: { orderDate: "asc" },
-    select: { orderDate: true, totalAmount: true }
+    select: {
+      id: true,
+      poNumber: true,
+      orderDate: true,
+      totalAmount: true,
+      supplier: {
+        select: {
+          name: true
+        }
+      }
+    }
   });
 
-  const dailyMap = new Map<string, { amount: Decimal; count: number }>();
-
-  for (const o of orders) {
-    const key = o.orderDate.toISOString().split("T")[0];
-    const amount = new Decimal(o.totalAmount);
-
-    const existing = dailyMap.get(key) || { amount: new Decimal(0), count: 0 };
-    dailyMap.set(key, {
-      amount: existing.amount.plus(amount),
-      count: existing.count + 1
-    });
-  }
-
-  const results = [];
-  let currentDate = new Date(filterFrom);
-  while (currentDate <= filterTo) {
-    const key = currentDate.toISOString().split("T")[0];
-    const stats = dailyMap.get(key) || { amount: new Decimal(0), count: 0 };
-    
-    results.push({
-      date: key,
-      amount: stats.amount.toNumber(),
-      count: stats.count
-    });
-
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-
-  return results;
+  return orders.map(o => ({
+    id: o.id,
+    poNumber: o.poNumber,
+    date: o.orderDate.toISOString().split("T")[0],
+    vendorName: o.supplier.name,
+    amount: Number(o.totalAmount),
+  }));
 });
 
 // ============================================================================

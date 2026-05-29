@@ -165,3 +165,70 @@ export function convertToBS(date: Date | string | number): string {
   return `${bsYear}-${bsMonth}-${bsDay}`;
 }
 
+/**
+ * Recursively search and convert Decimal objects to numbers and Date objects to ISO strings,
+ * ensuring clean serialization without precision loss in database/server-side operations.
+ */
+export function serializeForClient<T>(data: T): any {
+  if (data === null || data === undefined) return data;
+  
+  // Handle Decimal objects (both decimal.js and Prisma's Decimal type)
+  if (data instanceof Decimal || (data as any).constructor?.name === "Decimal" || typeof (data as any).toNumber === "function") {
+    return Number(data.toString());
+  }
+  
+  // Handle Date objects
+  if (data instanceof Date) return data.toISOString();
+  
+  // Handle Arrays
+  if (Array.isArray(data)) {
+    return data.map(item => serializeForClient(item));
+  }
+  
+  // Handle any object (including Prisma model instances with class prototypes)
+  if (typeof data === "object") {
+    const result: any = {};
+    for (const key of Object.keys(data as any)) {
+      result[key] = serializeForClient((data as any)[key]);
+    }
+    return result;
+  }
+  
+  return data;
+}
+
+/**
+ * Generate unique incremented suffixes for model codes (CUS-001, SUP-001, etc.)
+ * by finding the absolute maximum existing integer suffix and incrementing.
+ */
+export async function nextCode(
+  tx: any,
+  model: string,
+  field: string,
+  prefix: string
+): Promise<string> {
+  const existing = await tx[model].findMany({
+    select: { [field]: true },
+    where: { [field]: { startsWith: prefix + "-" } },
+  });
+
+  const padLen = (prefix === "INV" || prefix === "PO") ? 4 : 3;
+
+  if (existing.length === 0) {
+    return `${prefix}-${String(1).padStart(padLen, "0")}`;
+  }
+
+  const numbers = existing
+    .map((r: any) => {
+      const parts = r[field].split("-");
+      const num = parseInt(parts[parts.length - 1]);
+      return isNaN(num) ? 0 : num;
+    })
+    .filter((n: number) => n > 0);
+
+  const maxNum = numbers.length > 0 ? Math.max(...numbers) : 0;
+  const nextNum = maxNum + 1;
+  return `${prefix}-${String(nextNum).padStart(padLen, "0")}`;
+}
+
+

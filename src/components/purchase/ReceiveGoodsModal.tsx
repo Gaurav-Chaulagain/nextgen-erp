@@ -1,14 +1,16 @@
 "use client";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { PurchaseOrderItemSchema } from "@/modules/purchase/types";
 import { receiveGoodsSchema } from "@/modules/purchase/types";
 import { receiveGoods } from "@/modules/purchase/actions";
 import { toast } from "sonner";
+import { Package, ShieldAlert, Check } from "lucide-react";
 
 interface ReceiveGoodsModalProps {
   open?: boolean;
@@ -30,6 +32,7 @@ export function ReceiveGoodsModal({
   const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
   const [receiving, setReceiving] = useState<Record<string, number>>({});
+  const [prices, setPrices] = useState<Record<string, number>>({});
   const [warehouseId, setWarehouseId] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
@@ -61,8 +64,27 @@ export function ReceiveGoodsModal({
     }
   }, [open]);
 
+  // Set default prices from products if they exist
+  useEffect(() => {
+    if (open && poItems.length > 0) {
+      const defaultPrices: Record<string, number> = {};
+      const defaultReceiving: Record<string, number> = {};
+      poItems.forEach(item => {
+        // Try parsing purchase price variant or keep 0
+        defaultPrices[item.id] = parseFloat(item.unitPrice) || 0;
+        defaultReceiving[item.id] = item.orderedQty - item.receivedQty;
+      });
+      setPrices(defaultPrices);
+      setReceiving(defaultReceiving);
+    }
+  }, [open, poItems]);
+
   const handleReceive = (itemId: string, qty: number) => {
     setReceiving((prev) => ({ ...prev, [itemId]: qty }));
+  };
+
+  const handlePrice = (itemId: string, price: number) => {
+    setPrices((prev) => ({ ...prev, [itemId]: price }));
   };
 
   const handleSubmit = async () => {
@@ -72,7 +94,11 @@ export function ReceiveGoodsModal({
     }
 
     const itemsToReceive = Object.entries(receiving)
-      .map(([poItemId, receivedQty]) => ({ poItemId, receivedQty }))
+      .map(([poItemId, receivedQty]) => ({
+        poItemId,
+        receivedQty,
+        receivedPrice: prices[poItemId] ?? 0
+      }))
       .filter((item) => item.receivedQty > 0);
 
     if (itemsToReceive.length === 0) {
@@ -80,13 +106,17 @@ export function ReceiveGoodsModal({
       return;
     }
 
-    // Validate quantities
+    // Validate quantities and prices
     for (const rx of itemsToReceive) {
       const item = poItems.find((itm) => itm.id === rx.poItemId);
       if (!item) continue;
       const maxReceivable = item.orderedQty - item.receivedQty;
       if (rx.receivedQty > maxReceivable) {
         toast.error(`Cannot receive more than ${maxReceivable} units for ${item.productName}`);
+        return;
+      }
+      if (rx.receivedPrice <= 0) {
+        toast.error(`Please enter a valid cost price for ${item.productName}`);
         return;
       }
     }
@@ -113,7 +143,7 @@ export function ReceiveGoodsModal({
     try {
       await receiveGoods(parsed.data, userId);
 
-      toast.success("Goods received successfully! Inventory stock has been updated.");
+      toast.success("Goods received successfully! Cost prices saved and stock updated.");
       setOpen(false);
       router.refresh();
     } catch (err: any) {
@@ -126,73 +156,94 @@ export function ReceiveGoodsModal({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Receive Goods — PO: <span className="font-mono text-zinc-600">{poNumber}</span></DialogTitle>
+      <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-hidden bg-zinc-950/95 border-zinc-900 text-zinc-150">
+        <DialogHeader className="border-b border-zinc-900 pb-3">
+          <DialogTitle className="text-xl font-bold flex items-center gap-2 text-zinc-50">
+            <Package size={20} className="text-amber-500" /> Receive Goods — PO: <span className="font-mono text-zinc-400">{poNumber}</span>
+          </DialogTitle>
+          <DialogDescription className="text-xs text-zinc-400 mt-0.5">
+            Log receiving materials from this purchase order. Define destination warehouse, actual quantity received, and cost prices. Financial ledger balances will post automatically.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 pt-2">
-          {/* Warehouse Selector */}
-          <div>
-            <label className="text-sm font-medium block mb-1">Destination Warehouse *</label>
-            <select
-              value={warehouseId}
-              onChange={(e) => setWarehouseId(e.target.value)}
-              className="w-full border rounded-md px-3 py-2 text-sm bg-white dark:bg-zinc-950"
-            >
-              <option value="">-- Select Warehouse --</option>
-              {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
+        <div className="flex-grow overflow-y-auto py-4 space-y-4 pr-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl border border-zinc-900 bg-zinc-900/30">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-zinc-400 tracking-wider uppercase block">Destination Warehouse *</Label>
+              <select
+                value={warehouseId}
+                onChange={(e) => setWarehouseId(e.target.value)}
+                className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+              >
+                <option value="">-- Select Warehouse --</option>
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-zinc-400 tracking-wider uppercase block">Receiving Notes</Label>
+              <Input
+                placeholder="e.g. Challan #, delivery van details, loading inspector..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="h-10 bg-zinc-900 border-zinc-800 text-zinc-100"
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="text-sm font-medium block mb-1">Receiving Notes</label>
-            <Input
-              placeholder="e.g. Delivery Challan #, driver info, stock remarks..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
-
-          <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mt-4">Order Items</h4>
+          <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mt-4">Order Items to Reconcile</h4>
           {poItems.length === 0 ? (
-            <p className="text-sm text-zinc-500 italic">No items associated with this PO.</p>
+            <div className="text-center py-8 border border-dashed border-zinc-900 rounded-lg bg-zinc-900/20">
+              <p className="text-sm text-zinc-500 italic">No items associated with this Purchase Order.</p>
+            </div>
           ) : (
-            <div className="border rounded-lg divide-y bg-zinc-50/30">
+            <div className="border border-zinc-900 rounded-xl divide-y divide-zinc-900 overflow-hidden bg-zinc-900/10">
               {poItems.map((item) => {
                 const remaining = item.orderedQty - item.receivedQty;
+                const receiveQtyValue = receiving[item.id] ?? 0;
+                const priceValue = prices[item.id] ?? 0;
+
                 return (
-                  <div key={item.id} className="p-4 flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
-                    <div className="flex-1">
-                      <p className="font-semibold text-sm text-zinc-900 dark:text-zinc-50">{item.productName}</p>
-                      <p className="text-xs text-zinc-500 font-mono">{item.productCode}</p>
+                  <div key={item.id} className="p-4 grid grid-cols-12 gap-4 items-center hover:bg-zinc-900/20">
+                    <div className="col-span-12 sm:col-span-4">
+                      <p className="font-semibold text-zinc-200">{item.productName}</p>
+                      <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{item.productCode}</p>
                     </div>
-                    <div className="flex gap-4 items-end text-xs">
-                      <div>
-                        <span className="text-zinc-500 block mb-0.5">Ordered</span>
-                        <p className="font-semibold text-sm">{item.orderedQty} {item.productUnit}</p>
+
+                    <div className="col-span-12 sm:col-span-8 grid grid-cols-4 gap-3 items-end">
+                      <div className="text-center bg-zinc-900/50 py-1.5 rounded border border-zinc-900">
+                        <span className="text-[9px] text-zinc-500 uppercase font-semibold block">Demand</span>
+                        <p className="text-xs font-bold text-zinc-300">{item.orderedQty} {item.productUnit}</p>
                       </div>
-                      <div>
-                        <span className="text-zinc-500 block mb-0.5">Received</span>
-                        <p className="font-semibold text-sm text-green-600">{item.receivedQty} {item.productUnit}</p>
+
+                      <div className="text-center bg-zinc-900/50 py-1.5 rounded border border-zinc-900">
+                        <span className="text-[9px] text-zinc-500 uppercase font-semibold block">Received</span>
+                        <p className="text-xs font-bold text-emerald-500">{item.receivedQty} {item.productUnit}</p>
                       </div>
-                      <div>
-                        <span className="text-zinc-500 block mb-0.5">Pending</span>
-                        <p className="font-semibold text-sm text-zinc-600">{remaining} {item.productUnit}</p>
-                      </div>
-                      <div className="w-24">
-                        <label className="text-zinc-500 block mb-0.5">Receiving Now</label>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-zinc-500 uppercase font-semibold block">Receiving Now</label>
                         <Input
                           type="number"
                           max={remaining}
                           min={0}
-                          defaultValue={0}
-                          onChange={(e) => handleReceive(item.id, Math.max(0, parseInt(e.target.value) || 0))}
-                          className="h-8"
+                          value={receiveQtyValue}
+                          onChange={(e) => handleReceive(item.id, Math.min(remaining, Math.max(0, parseInt(e.target.value) || 0)))}
+                          className="h-8 text-xs bg-zinc-900 border-zinc-800 text-zinc-100 text-center"
+                          disabled={remaining <= 0}
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-zinc-500 uppercase font-semibold block">Cost Price (NPR) *</label>
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          value={priceValue === 0 ? "" : priceValue}
+                          onChange={(e) => handlePrice(item.id, Math.max(0, parseFloat(e.target.value) || 0))}
+                          className="h-8 text-xs bg-zinc-900 border-zinc-800 text-zinc-100 text-center font-mono"
                           disabled={remaining <= 0}
                         />
                       </div>
@@ -204,12 +255,21 @@ export function ReceiveGoodsModal({
           )}
         </div>
 
-        <DialogFooter className="mt-4 border-t pt-4">
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
+        <DialogFooter className="border-t border-zinc-900 pt-4 flex gap-2 justify-end">
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={loading}
+            className="border-zinc-800 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-white"
+          >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
-            {loading ? "Receiving..." : "Confirm Receipt"}
+          <Button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold shadow-md border-none"
+          >
+            {loading ? "Reconciling..." : "Confirm Material Receipt"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -217,3 +277,4 @@ export function ReceiveGoodsModal({
   );
 }
 
+export default ReceiveGoodsModal;

@@ -46,11 +46,11 @@ export async function updateUserCredentials(
     throw new Error("Unauthorized. Please log in.");
   }
 
-  // 2. Permission: SUPERADMIN can edit anyone. Others can only edit themselves.
-  const isSuperAdmin = sessionUser.role === "SUPERADMIN";
+  // 2. Permission: SUPERADMIN/OWNER can edit anyone. Others can only edit themselves.
+  const isSuperAdminOrOwner = sessionUser.role === "SUPERADMIN" || sessionUser.role === "OWNER";
   const isEditingSelf = sessionUser.id === userId;
 
-  if (!isSuperAdmin && !isEditingSelf) {
+  if (!isSuperAdminOrOwner && !isEditingSelf) {
     throw new Error("Access Denied. You can only edit your own profile.");
   }
 
@@ -80,9 +80,9 @@ export async function updateUserCredentials(
     }
   }
 
-  // 6. Non-SUPERADMIN cannot change roles of others
-  if (!isSuperAdmin && data.role !== oldUser.role) {
-    throw new Error("Access Denied. Only Super Admins can change user roles.");
+  // 6. Non-SUPERADMIN/OWNER cannot change roles of others
+  if (!isSuperAdminOrOwner && data.role !== oldUser.role) {
+    throw new Error("Access Denied. Only Super Admins and Business Owners can change user roles.");
   }
 
   // 7. Email uniqueness check (exclude current user)

@@ -1,16 +1,36 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogFooter, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
+import { Plus, ChevronRight, ChevronLeft, Save } from 'lucide-react';
 
 export function AddProductModal() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState<any>({ name: '', categoryId: '', brandId: '', warehouseId: '', unit: 'PCS', description: '', minStockLevel: 0, reorderLevel: 0, quantity: 0, variants: [] });
-  const [options, setOptions] = useState({ categories: [] as any[], brands: [] as any[], warehouses: [] as any[] });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [form, setForm] = useState<any>({
+    name: '',
+    categoryId: '',
+    brandId: '',
+    warehouseId: '',
+    unit: 'BAG',
+    description: '',
+    minStockLevel: 0,
+    reorderLevel: 0,
+    quantity: 0,
+    variants: []
+  });
+  
+  const [options, setOptions] = useState({
+    categories: [] as any[],
+    brands: [] as any[],
+    warehouses: [] as any[],
+    suppliers: [] as any[]
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -19,29 +39,118 @@ export function AddProductModal() {
         const res = await fetch('/api/inventory/lookups');
         const j = await res.json();
         if (!mounted) return;
-        setOptions({ categories: j.categories || [], brands: j.brands || [], warehouses: j.warehouses || [] });
+        
+        const warehouses = j.warehouses || [];
+        setOptions({
+          categories: j.categories || [],
+          brands: j.brands || [],
+          warehouses: warehouses,
+          suppliers: j.suppliers || []
+        });
+
+        // Auto-select warehouse if exactly 1 exists
+        if (warehouses.length === 1) {
+          setForm((s: any) => ({ ...s, warehouseId: warehouses[0].id }));
+        }
       } catch (err) {
         console.error('Failed to load lookups', err);
       }
     })();
     return () => { mounted = false };
-  }, []);
+  }, [open]);
+
   const router = useRouter();
 
   function update<K extends string>(key: K, value: any) {
     setForm((s: any) => ({ ...s, [key]: value }));
+    // Clear validation error when field is updated
+    if (errors[key]) {
+      setErrors((e) => {
+        const next = { ...e };
+        delete next[key];
+        return next;
+      });
+    }
   }
 
   function addVariant() {
-    setForm((s: any) => ({ ...s, variants: [...(s.variants || []), { supplierId: '', purchasePrice: 0, retailPrice: 0, wholesalePrice: 0, projectPrice: 0 }] }));
+    setForm((s: any) => ({
+      ...s,
+      variants: [
+        ...(s.variants || []),
+        { supplierId: '', purchasePrice: 0, retailPrice: 0, wholesalePrice: 0, projectPrice: 0 }
+      ]
+    }));
+  }
+
+  function removeVariant(index: number) {
+    setForm((s: any) => ({
+      ...s,
+      variants: s.variants.filter((_: any, i: number) => i !== index)
+    }));
+  }
+
+  function validateStep1() {
+    const newErrors: Record<string, string> = {};
+    if (!form.name.trim()) newErrors.name = "Product name is required";
+    if (!form.categoryId) newErrors.categoryId = "Please select a category";
+    if (!form.brandId) newErrors.brandId = "Please select a brand";
+    if (!form.warehouseId) newErrors.warehouseId = "Please select a warehouse";
+    if (!form.unit) newErrors.unit = "Please select a unit";
+    if (form.quantity < 0) newErrors.quantity = "Quantity cannot be negative";
+    if (form.reorderLevel < 0) newErrors.reorderLevel = "Reorder level cannot be negative";
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
+
+  function validateStep2() {
+    const newErrors: Record<string, string> = {};
+    if (form.variants && form.variants.length > 0) {
+      form.variants.forEach((v: any, i: number) => {
+        if (!v.supplierId) newErrors[`variant_${i}_supplier`] = "Select a supplier";
+        if (v.purchasePrice <= 0) newErrors[`variant_${i}_purchase`] = "Must be > 0";
+        if (v.retailPrice <= 0) newErrors[`variant_${i}_retail`] = "Must be > 0";
+        if (v.wholesalePrice <= 0) newErrors[`variant_${i}_wholesale`] = "Must be > 0";
+      });
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
+
+  function handleNext() {
+    if (validateStep1()) {
+      setStep(2);
+      setErrors({});
+    }
   }
 
   async function submit() {
+    if (!validateStep2()) return;
     try {
-      const res = await fetch('/api/inventory/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+      const res = await fetch('/api/inventory/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      });
       const j = await res.json();
-      if (!res.ok) throw new Error(j.error || 'Failed');
+      if (!res.ok) throw new Error(j.error || 'Failed to create product');
       setOpen(false);
+      // Reset form
+      setForm({
+        name: '',
+        categoryId: '',
+        brandId: '',
+        warehouseId: '',
+        unit: 'BAG',
+        description: '',
+        minStockLevel: 0,
+        reorderLevel: 0,
+        quantity: 0,
+        variants: []
+      });
+      setStep(1);
+      setErrors({});
       router.refresh();
     } catch (err) {
       console.error(err);
@@ -52,62 +161,306 @@ export function AddProductModal() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="default">Add Product</Button>
+        <Button className="gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg border-none transition-all">
+          <Plus size={16} /> Add Product
+        </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-2xl border-zinc-800 bg-zinc-950/95 backdrop-blur-xl text-zinc-150">
         <DialogHeader>
-          <DialogTitle>{step === 1 ? 'Add Product — Basic' : 'Add Product — Vendor Pricing'}</DialogTitle>
+          <DialogTitle className="text-xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+            {step === 1 ? 'Add Product — Basic Details' : 'Add Product — Supplier Pricing Variants'}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Form wizard to create a new product item with specifications, warehouse stock, and multiple supplier price matrices.
+          </DialogDescription>
         </DialogHeader>
 
         {step === 1 ? (
-          <div className="space-y-3">
-            <Input placeholder="Name" value={form.name} onChange={(e) => update('name', e.target.value)} />
-            <input list="categories" value={form.categoryId} onChange={(e) => update('categoryId', e.target.value)} className="w-full rounded-md border px-3 py-2" placeholder="Select category" />
-            <datalist id="categories">
-              {options.categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </datalist>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="name" className="text-sm font-medium text-zinc-300">Product Name</Label>
+                <Input
+                  id="name"
+                  placeholder="e.g. Waterproofing Compound Premium"
+                  value={form.name}
+                  onChange={(e) => update('name', e.target.value)}
+                  className="bg-zinc-900 border-zinc-800 focus:ring-amber-500 focus:border-amber-500 text-zinc-100"
+                />
+                {errors.name && <span className="text-xs text-rose-500 font-medium">{errors.name}</span>}
+              </div>
 
-            <input list="brands" value={form.brandId} onChange={(e) => update('brandId', e.target.value)} className="w-full rounded-md border px-3 py-2" placeholder="Select brand" />
-            <datalist id="brands">
-              {options.brands.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </datalist>
+              <div className="space-y-1.5">
+                <Label htmlFor="categoryId" className="text-sm font-medium text-zinc-300">Category</Label>
+                <select
+                  id="categoryId"
+                  value={form.categoryId}
+                  onChange={(e) => update('categoryId', e.target.value)}
+                  className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                >
+                  <option value="">Select Category</option>
+                  {options.categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                {errors.categoryId && <span className="text-xs text-rose-500 font-medium">{errors.categoryId}</span>}
+              </div>
 
-            <input list="warehouses" value={form.warehouseId} onChange={(e) => update('warehouseId', e.target.value)} className="w-full rounded-md border px-3 py-2" placeholder="Select warehouse" />
-            <datalist id="warehouses">
-              {options.warehouses.map((w) => (
-                <option key={w.id} value={w.id}>{w.name}</option>
-              ))}
-            </datalist>
-            <Input placeholder="Unit" value={form.unit} onChange={(e) => update('unit', e.target.value)} />
-            <div className="flex gap-2">
-              <Input type="number" placeholder="Quantity" value={form.quantity} onChange={(e) => update('quantity', Number(e.target.value))} />
-              <Input type="number" placeholder="Reorder Level" value={form.reorderLevel} onChange={(e) => update('reorderLevel', Number(e.target.value))} />
+              <div className="space-y-1.5">
+                <Label htmlFor="brandId" className="text-sm font-medium text-zinc-300">Brand</Label>
+                <select
+                  id="brandId"
+                  value={form.brandId}
+                  onChange={(e) => update('brandId', e.target.value)}
+                  className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                >
+                  <option value="">Select Brand</option>
+                  {options.brands.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+                {errors.brandId && <span className="text-xs text-rose-500 font-medium">{errors.brandId}</span>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="warehouseId" className="text-sm font-medium text-zinc-300">Warehouse</Label>
+                <select
+                  id="warehouseId"
+                  value={form.warehouseId}
+                  onChange={(e) => update('warehouseId', e.target.value)}
+                  className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                >
+                  <option value="">Select Warehouse</option>
+                  {options.warehouses.map((w) => (
+                    <option key={w.id} value={w.id}>{w.name}</option>
+                  ))}
+                </select>
+                {options.warehouses.length === 1 && (
+                  <span className="text-xs text-zinc-500">Automatically defaulted (only 1 warehouse exists)</span>
+                )}
+                {errors.warehouseId && <span className="text-xs text-rose-500 font-medium">{errors.warehouseId}</span>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="unit" className="text-sm font-medium text-zinc-300">Unit of Measurement</Label>
+                <select
+                  id="unit"
+                  value={form.unit}
+                  onChange={(e) => update('unit', e.target.value)}
+                  className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                >
+                  <option value="BAG">BAG</option>
+                  <option value="PCS">PCS</option>
+                  <option value="METER">METER</option>
+                  <option value="KG">KG</option>
+                  <option value="LITRE">LITRE</option>
+                  <option value="SQ_FT">SQ FT</option>
+                  <option value="ROLL">ROLL</option>
+                  <option value="BOX">BOX</option>
+                </select>
+                {errors.unit && <span className="text-xs text-rose-500 font-medium">{errors.unit}</span>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="quantity" className="text-sm font-medium text-zinc-300">Initial Stock Quantity</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  placeholder="0"
+                  value={form.quantity}
+                  onChange={(e) => update('quantity', Math.max(0, Number(e.target.value)))}
+                  className="bg-zinc-900 border-zinc-800 text-zinc-100"
+                />
+                {errors.quantity && <span className="text-xs text-rose-500 font-medium">{errors.quantity}</span>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="reorderLevel" className="text-sm font-medium text-zinc-300">Reorder Level Alert Threshold</Label>
+                <Input
+                  id="reorderLevel"
+                  type="number"
+                  placeholder="0"
+                  value={form.reorderLevel}
+                  onChange={(e) => update('reorderLevel', Math.max(0, Number(e.target.value)))}
+                  className="bg-zinc-900 border-zinc-800 text-zinc-100"
+                />
+                {errors.reorderLevel && <span className="text-xs text-rose-500 font-medium">{errors.reorderLevel}</span>}
+              </div>
+
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="description" className="text-sm font-medium text-zinc-300">Description (Optional)</Label>
+                <textarea
+                  id="description"
+                  placeholder="Product specs, usage guidelines, etc."
+                  value={form.description}
+                  onChange={(e) => update('description', e.target.value)}
+                  className="w-full min-h-16 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                />
+              </div>
             </div>
           </div>
         ) : (
-          <div className="space-y-3">
-            {(form.variants || []).map((v: any, i: number) => (
-              <div key={i} className="grid grid-cols-2 gap-2">
-                <Input placeholder="Supplier ID" value={v.supplierId} onChange={(e) => { const arr = [...form.variants]; arr[i].supplierId = e.target.value; setForm({ ...form, variants: arr }); }} />
-                <Input placeholder="Purchase Price" type="number" value={v.purchasePrice} onChange={(e) => { const arr = [...form.variants]; arr[i].purchasePrice = Number(e.target.value); setForm({ ...form, variants: arr }); }} />
-                <Input placeholder="Retail Price" type="number" value={v.retailPrice} onChange={(e) => { const arr = [...form.variants]; arr[i].retailPrice = Number(e.target.value); setForm({ ...form, variants: arr }); }} />
-                <Input placeholder="Wholesale Price" type="number" value={v.wholesalePrice} onChange={(e) => { const arr = [...form.variants]; arr[i].wholesalePrice = Number(e.target.value); setForm({ ...form, variants: arr }); }} />
-              </div>
-            ))}
-            <div>
-              <Button variant="outline" onClick={addVariant}>Add Variant</Button>
+          <div className="space-y-4 py-2 max-h-[50vh] overflow-y-auto pr-1">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-zinc-400">Configure cost and client selling prices per supplier.</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addVariant}
+                className="border-zinc-800 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-white gap-1"
+              >
+                <Plus size={14} /> Add Supplier Price Row
+              </Button>
             </div>
+
+            {(!form.variants || form.variants.length === 0) ? (
+              <div className="text-center py-8 border border-dashed border-zinc-800 rounded-lg bg-zinc-900/30">
+                <p className="text-sm text-zinc-500">No supplier pricing added yet. Highly recommended to configure at least one.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {form.variants.map((v: any, i: number) => (
+                  <div key={i} className="p-4 border border-zinc-800 rounded-lg bg-zinc-900/40 relative space-y-3">
+                    <div className="flex justify-between items-center pb-1 border-b border-zinc-800/60">
+                      <span className="text-xs font-semibold text-amber-500">Supplier Combo #{i + 1}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeVariant(i)}
+                        className="h-7 text-rose-500 hover:text-rose-400 hover:bg-rose-950/20 px-2"
+                      >
+                        Remove Row
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="space-y-1.5 col-span-2">
+                        <Label className="text-xs text-zinc-400">Supplier</Label>
+                        <select
+                          value={v.supplierId}
+                          onChange={(e) => {
+                            const arr = [...form.variants];
+                            arr[i].supplierId = e.target.value;
+                            setForm({ ...form, variants: arr });
+                            setErrors((prev) => {
+                              const next = { ...prev };
+                              delete next[`variant_${i}_supplier`];
+                              return next;
+                            });
+                          }}
+                          className="w-full h-9 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-sm text-zinc-100 focus:outline-none"
+                        >
+                          <option value="">Select Supplier</option>
+                          {options.suppliers.map((s) => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                        {errors[`variant_${i}_supplier`] && (
+                          <span className="text-[10px] text-rose-500">{errors[`variant_${i}_supplier`]}</span>
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-zinc-400">Purchase Price</Label>
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          value={v.purchasePrice}
+                          onChange={(e) => {
+                            const arr = [...form.variants];
+                            arr[i].purchasePrice = Number(e.target.value);
+                            setForm({ ...form, variants: arr });
+                          }}
+                          className="h-9 bg-zinc-950 border-zinc-800 text-zinc-100"
+                        />
+                        {errors[`variant_${i}_purchase`] && (
+                          <span className="text-[10px] text-rose-500">{errors[`variant_${i}_purchase`]}</span>
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-zinc-400">Retail Sell Price</Label>
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          value={v.retailPrice}
+                          onChange={(e) => {
+                            const arr = [...form.variants];
+                            arr[i].retailPrice = Number(e.target.value);
+                            setForm({ ...form, variants: arr });
+                          }}
+                          className="h-9 bg-zinc-950 border-zinc-800 text-zinc-100"
+                        />
+                        {errors[`variant_${i}_retail`] && (
+                          <span className="text-[10px] text-rose-500">{errors[`variant_${i}_retail`]}</span>
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5 col-span-2">
+                        <Label className="text-xs text-zinc-400">Wholesale Price</Label>
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          value={v.wholesalePrice}
+                          onChange={(e) => {
+                            const arr = [...form.variants];
+                            arr[i].wholesalePrice = Number(e.target.value);
+                            setForm({ ...form, variants: arr });
+                          }}
+                          className="h-9 bg-zinc-950 border-zinc-800 text-zinc-100"
+                        />
+                        {errors[`variant_${i}_wholesale`] && (
+                          <span className="text-[10px] text-rose-500">{errors[`variant_${i}_wholesale`]}</span>
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5 col-span-2">
+                        <Label className="text-xs text-zinc-400">Project Price</Label>
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          value={v.projectPrice}
+                          onChange={(e) => {
+                            const arr = [...form.variants];
+                            arr[i].projectPrice = Number(e.target.value);
+                            setForm({ ...form, variants: arr });
+                          }}
+                          className="h-9 bg-zinc-950 border-zinc-800 text-zinc-100"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        <DialogFooter>
-          {step > 1 && <Button variant="outline" onClick={() => setStep((s) => s - 1)}>Back</Button>}
-          {step < 2 && <Button onClick={() => setStep(2)}>Next</Button>}
-          {step === 2 && <Button onClick={submit}>Create Product</Button>}
+        <DialogFooter className="border-t border-zinc-900 pt-4 flex gap-2">
+          {step > 1 && (
+            <Button
+              variant="outline"
+              onClick={() => setStep(1)}
+              className="border-zinc-800 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-white gap-2"
+            >
+              <ChevronLeft size={16} /> Back
+            </Button>
+          )}
+          {step === 1 ? (
+            <Button
+              onClick={handleNext}
+              className="gap-2 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-semibold"
+            >
+              Next: Pricing <ChevronRight size={16} />
+            </Button>
+          ) : (
+            <Button
+              onClick={submit}
+              className="gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold"
+            >
+              <Save size={16} /> Save Product
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

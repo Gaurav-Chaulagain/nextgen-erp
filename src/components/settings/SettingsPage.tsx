@@ -12,12 +12,14 @@ import {
   saveInvoiceSettingsAction,
   createWarehouseAction,
   updateWarehouseAction,
+  deleteWarehouseAction,
   createFiscalYearAction,
   toggleFiscalYearStatusAction,
   exportAllDataAction
 } from "../../modules/settings/actions";
 import { SystemSettings, BusinessInfo, InvoiceSettings } from "../../lib/settings-store";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import {
   Building2,
   FileText,
@@ -30,7 +32,9 @@ import {
   Lock,
   Download,
   AlertCircle,
-  HelpCircle
+  HelpCircle,
+  Pencil,
+  Trash2
 } from "lucide-react";
 
 interface SettingsPageProps {
@@ -69,6 +73,7 @@ export function SettingsPage({
   const [bizPan, setBizPan] = useState(initialSettings.businessInfo.pan);
   const [bizAddress, setBizAddress] = useState(initialSettings.businessInfo.address);
   const [bizPhone, setBizPhone] = useState(initialSettings.businessInfo.phone);
+  const [bizEmail, setBizEmail] = useState(initialSettings.businessInfo.email || "");
 
   // 2. Invoice Settings form states
   const [invoiceVat, setInvoiceVat] = useState(initialSettings.invoiceSettings.defaultVatRate);
@@ -87,6 +92,11 @@ export function SettingsPage({
   const [newWhName, setNewWhName] = useState("");
   const [newWhLoc, setNewWhLoc] = useState("");
   const [newWhDesc, setNewWhDesc] = useState("");
+  const [selectedWarehouse, setSelectedWarehouse] = useState<any>(null);
+  const [editWhName, setEditWhName] = useState("");
+  const [editWhLoc, setEditWhLoc] = useState("");
+  const [editWhDesc, setEditWhDesc] = useState("");
+  const [isEditWhOpen, setIsEditWhOpen] = useState(false);
 
   const isAdminOrOwner = sessionUser.role === "SUPERADMIN" || sessionUser.role === "OWNER";
   const isSuperAdmin = sessionUser.role === "SUPERADMIN";
@@ -101,6 +111,7 @@ export function SettingsPage({
         pan: bizPan,
         address: bizAddress,
         phone: bizPhone,
+        email: bizEmail,
       });
       toast.success("Business profile details successfully updated.");
     } catch (err: any) {
@@ -174,6 +185,47 @@ export function SettingsPage({
       window.location.reload();
     } catch (err: any) {
       toast.error(err.message || "Failed to modify warehouse status.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Delete Warehouse
+  const handleDeleteWarehouse = async (id: string) => {
+    try {
+      setLoading(true);
+      await deleteWarehouseAction(id);
+      toast.success("Warehouse deleted successfully.");
+      window.location.reload();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete warehouse.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update Warehouse
+  const handleUpdateWarehouse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedWarehouse) return;
+    if (!editWhName.trim()) {
+      toast.error("Warehouse name is required.");
+      return;
+    }
+    try {
+      setLoading(true);
+      await updateWarehouseAction(selectedWarehouse.id, {
+        name: editWhName,
+        location: editWhLoc,
+        description: editWhDesc,
+        isActive: selectedWarehouse.isActive,
+      });
+      toast.success("Warehouse updated successfully.");
+      setIsEditWhOpen(false);
+      setSelectedWarehouse(null);
+      window.location.reload();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update warehouse.");
     } finally {
       setLoading(false);
     }
@@ -386,6 +438,20 @@ export function SettingsPage({
                   required
                   disabled={loading || !isAdminOrOwner}
                   className="h-10 rounded-xl font-mono"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="biz-email" className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Official Contact Email(s)
+                </Label>
+                <Input
+                  id="biz-email"
+                  value={bizEmail}
+                  onChange={(e) => setBizEmail(e.target.value)}
+                  disabled={loading || !isAdminOrOwner}
+                  className="h-10 rounded-xl font-mono"
+                  placeholder="nextgen.interior2025@gmail.com, nischaltimsina20@gmail.com"
                 />
               </div>
             </CardContent>
@@ -720,19 +786,51 @@ export function SettingsPage({
                         <td className="py-3 px-3 text-center">
                           <StatusBadge status={wh.isActive ? "ACTIVE" : "CANCELLED"} />
                         </td>
-                        <td className="py-3 px-3 text-right">
+                        <td className="py-3 px-3 text-right space-x-1.5">
                           {isAdminOrOwner && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleToggleWarehouse(wh.id, wh)}
-                              disabled={loading}
-                              className={`h-7 text-[10px] font-bold ${
-                                wh.isActive ? "text-rose-600 hover:bg-rose-50" : "text-emerald-600 hover:bg-emerald-50"
-                              }`}
-                            >
-                              {wh.isActive ? "Deactivate" : "Activate"}
-                            </Button>
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedWarehouse(wh);
+                                  setEditWhName(wh.name);
+                                  setEditWhLoc(wh.location || "");
+                                  setEditWhDesc(wh.description || "");
+                                  setIsEditWhOpen(true);
+                                }}
+                                disabled={loading}
+                                className="h-7 w-7 p-0 rounded-lg border-zinc-200 dark:border-zinc-800 hover:bg-primary/5 hover:text-primary transition-all inline-flex items-center justify-center"
+                                title="Edit warehouse details"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  if (confirm(`Are you sure you want to delete warehouse ${wh.name}?`)) {
+                                    handleDeleteWarehouse(wh.id);
+                                  }
+                                }}
+                                disabled={loading}
+                                className="h-7 w-7 p-0 rounded-lg border-zinc-200 dark:border-zinc-800 text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all inline-flex items-center justify-center"
+                                title="Delete warehouse"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleToggleWarehouse(wh.id, wh)}
+                                disabled={loading}
+                                className={`h-7 text-[10px] font-bold ${
+                                  wh.isActive ? "text-rose-600 hover:bg-rose-50" : "text-emerald-600 hover:bg-emerald-50"
+                                }`}
+                              >
+                                {wh.isActive ? "Deactivate" : "Activate"}
+                              </Button>
+                            </>
                           )}
                         </td>
                       </tr>
@@ -853,6 +951,77 @@ export function SettingsPage({
             </div>
           </Card>
         </div>
+      )}
+      {/* Edit Warehouse Modal */}
+      {isEditWhOpen && selectedWarehouse && (
+        <Dialog open={isEditWhOpen} onOpenChange={(val) => !val && setIsEditWhOpen(false)}>
+          <DialogContent className="max-w-md rounded-2xl p-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-zinc-900 dark:text-zinc-50 font-bold">
+                <Warehouse className="h-5 w-5 text-primary" />
+                Edit Warehouse Details
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleUpdateWarehouse} className="space-y-4 pt-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-wh-name" className="text-xs font-bold text-zinc-500 uppercase">
+                  Depot Name *
+                </Label>
+                <Input
+                  id="edit-wh-name"
+                  value={editWhName}
+                  onChange={(e) => setEditWhName(e.target.value)}
+                  required
+                  disabled={loading}
+                  className="h-10 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-wh-loc" className="text-xs font-bold text-zinc-500 uppercase">
+                  Physical Location
+                </Label>
+                <Input
+                  id="edit-wh-loc"
+                  value={editWhLoc}
+                  onChange={(e) => setEditWhLoc(e.target.value)}
+                  disabled={loading}
+                  className="h-10 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-wh-desc" className="text-xs font-bold text-zinc-500 uppercase">
+                  Operational Description
+                </Label>
+                <textarea
+                  id="edit-wh-desc"
+                  rows={3}
+                  value={editWhDesc}
+                  onChange={(e) => setEditWhDesc(e.target.value)}
+                  disabled={loading}
+                  className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <DialogFooter className="pt-2 flex items-center justify-end gap-2 border-t border-zinc-100 dark:border-zinc-900 mt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditWhOpen(false);
+                    setSelectedWarehouse(null);
+                  }}
+                  disabled={loading}
+                  className="h-10 rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={loading} className="h-10 rounded-xl">
+                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

@@ -129,37 +129,74 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
 
       {tab === "returns" && (
         <section className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-          <div className="mb-5">
-            <h2 className="text-lg font-semibold">Returns</h2>
-            <p className="text-sm text-zinc-500">Returned sales items posted back to stock.</p>
+          <div className="mb-6 border-b pb-4">
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Sales Returns Log</h2>
+            <p className="text-sm text-zinc-500">Distinct Red-themed Return Notes (SRN-XXXX) tracking re-credited inventory stock and digital cash book payouts.</p>
           </div>
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-zinc-50 dark:bg-zinc-900">
-                <tr>
-                  <th className="px-4 py-2 text-left">Date</th>
-                  <th className="px-4 py-2 text-left">Invoice</th>
-                  <th className="px-4 py-2 text-left">Item</th>
-                  <th className="px-4 py-2 text-left">Warehouse</th>
-                  <th className="px-4 py-2 text-right">Qty</th>
-                  <th className="px-4 py-2 text-right">Value</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {returnsResp.data.length ? returnsResp.data.map((entry) => (
-                  <tr key={entry.id}>
-                    <td className="px-4 py-2">{new Date(entry.createdAt).toLocaleDateString("en-IN")}</td>
-                    <td className="px-4 py-2 font-mono">{entry.invoiceNumber ?? "-"}</td>
-                    <td className="px-4 py-2">{entry.productName}</td>
-                    <td className="px-4 py-2">{entry.warehouseName}</td>
-                    <td className="px-4 py-2 text-right">{entry.quantity}</td>
-                    <td className="px-4 py-2 text-right">{formatNPR(Number(entry.value))}</td>
-                  </tr>
-                )) : (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-zinc-500">No returns recorded.</td></tr>
-                )}
-              </tbody>
-            </table>
+          
+          <div className="space-y-6">
+            {returnsResp.data.length ? returnsResp.data.map((r: any) => (
+              <div key={r.id} className="rounded-xl border border-red-100 bg-red-50/20 p-5 dark:border-red-950/40 dark:bg-red-950/10">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between border-b border-red-100/60 pb-3 dark:border-red-950/20 mb-3">
+                  <div>
+                    <span className="inline-flex items-center rounded-lg bg-red-100 px-3 py-1 font-mono text-xs font-bold text-red-700 dark:bg-red-950 dark:text-red-300">
+                      {r.returnNumber}
+                    </span>
+                    <span className="ml-3 text-xs text-zinc-500 font-medium">
+                      Date: {new Date(r.returnDate).toLocaleDateString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-xs text-zinc-500 font-semibold">
+                      Original Invoice: <span className="font-mono text-zinc-800 dark:text-zinc-200">{r.invoice?.invoiceNumber ?? "—"}</span>
+                    </span>
+                    <span className="text-xs text-zinc-500 font-semibold flex items-center gap-1.5">
+                      Refund Method: <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300 font-mono text-[10px]">{r.refundMethod}</Badge>
+                    </span>
+                    <Badge className="bg-red-600 hover:bg-red-700 text-white dark:bg-red-500 text-[10px] font-bold px-2 py-0.5">{r.status}</Badge>
+                  </div>
+                </div>
+
+                {/* Items Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-zinc-600 dark:text-zinc-300">
+                    <thead>
+                      <tr className="border-b border-red-100/40 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                        <th className="px-3 py-1.5 text-left">Product Name</th>
+                        <th className="px-3 py-1.5 text-left">Warehouse</th>
+                        <th className="px-3 py-1.5 text-right">Qty</th>
+                        <th className="px-3 py-1.5 text-right">Rate</th>
+                        <th className="px-3 py-1.5 text-right">Total Price</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-red-100/20 font-medium">
+                      {r.items?.map((item: any) => (
+                        <tr key={item.id}>
+                          <td className="px-3 py-2 text-zinc-800 dark:text-zinc-200">{item.product?.name}</td>
+                          <td className="px-3 py-2 text-zinc-500">{item.warehouse?.name}</td>
+                          <td className="px-3 py-2 text-right">{item.qty}</td>
+                          <td className="px-3 py-2 text-right">{formatNPR(Number(item.unitPrice))}</td>
+                          <td className="px-3 py-2 text-right text-zinc-800 dark:text-zinc-200">{formatNPR(Number(item.totalPrice))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-red-100/40 dark:border-red-950/20 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 text-xs">
+                  <div className="text-zinc-500">
+                    <span className="font-semibold text-zinc-700 dark:text-zinc-300">Reason:</span> {r.notes || "No reason specified."}
+                  </div>
+                  <div className="text-right font-bold text-red-700 dark:text-red-300 text-sm">
+                    Total Refund: {formatNPR(Number(r.totalAmount))}
+                  </div>
+                </div>
+              </div>
+            )) : (
+              <div className="rounded-xl border border-dashed p-10 text-center text-sm text-zinc-500">
+                No Sales Returns found.
+              </div>
+            )}
           </div>
         </section>
       )}

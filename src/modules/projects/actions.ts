@@ -2,6 +2,7 @@
 
 import { getCurrentUser } from "@/auth/session";
 import { getDb } from "@/lib/db";
+import { nextCode } from "@/lib/utils";
 import Decimal from "decimal.js";
 import type { ProjectStatus } from "./types";
 import {
@@ -29,15 +30,6 @@ async function resolveUserId(userId?: string) {
   return user.id;
 }
 
-async function nextCode(tx: any, model: string, field: string, prefix: string) {
-  const latest = await tx[model].findFirst({
-    where: { [field]: { startsWith: `${prefix}-` } },
-    orderBy: { [field]: "desc" },
-  });
-  const latestNumber = latest?.[field]?.split("-").at(-1);
-  const nextNumber = Number.parseInt(latestNumber ?? "0", 10) + 1;
-  return `${prefix}-${String(nextNumber).padStart(4, "0")}`;
-}
 
 async function latestCustomerBalance(tx: any, customerId: string) {
   const latest = await tx.ledgerEntry.findFirst({

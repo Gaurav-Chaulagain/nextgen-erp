@@ -68,6 +68,7 @@ export type RecordSalePaymentInput = z.infer<typeof recordSalePaymentSchema>;
 export const createReturnSchema = z.object({
   invoiceId: z.string().min(1),
   reason: z.string().min(1, "Return reason is required"),
+  refundMethod: z.enum(["CASH", "BANK", "CHEQUE", "ESEWA", "KHALTI"]).default("CASH"),
   items: z
     .array(
       z.object({

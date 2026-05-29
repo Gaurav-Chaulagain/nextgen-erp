@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { INVOICE_COLORS } from "@/lib/constants";
 import { formatNPR } from "@/lib/utils";
@@ -42,6 +42,9 @@ export function InvoicePreviewModal({ open = false, onOpenChange, invoice }: Inv
       <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Invoice Preview</DialogTitle>
+          <DialogDescription className="sr-only">
+            Preview of Sales Invoice details including buyer info, items, rates, taxes, and subtotal.
+          </DialogDescription>
         </DialogHeader>
 
         {invoice ? (
@@ -117,9 +120,6 @@ export function InvoicePreviewModal({ open = false, onOpenChange, invoice }: Inv
           <Button variant="outline" onClick={() => window.print()}>Print</Button>
           <Button variant="outline" onClick={handleDownloadPDF} disabled={downloading}>
             {downloading ? "Generating..." : "Download PDF"}
-          </Button>
-          <Button variant="outline" onClick={() => alert("Email features pending SMTP setup.")}>
-            Send Email
           </Button>
         </DialogFooter>
       </DialogContent>

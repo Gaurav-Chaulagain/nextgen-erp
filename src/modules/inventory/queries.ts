@@ -1,5 +1,6 @@
 import { getDb } from '@/lib/db';
 import { inventoryItemSchema, inventorySummarySchema } from './types';
+import { serializeForClient } from '@/lib/utils';
 
 type FetchInventoryOptions = {
   page?: number;
@@ -71,10 +72,10 @@ export async function fetchInventoryItems(opts: FetchInventoryOptions = {}) {
     });
   });
 
-  return {
+  return serializeForClient({
     data: mapped,
     pagination: { page, pageSize, total },
-  };
+  });
 }
 
 export async function fetchStockSummary() {
@@ -89,7 +90,9 @@ export async function fetchStockSummary() {
   const raw = await db.$queryRaw`SELECT COUNT(1) as cnt FROM inventory_stock s JOIN products p ON s.product_id = p.id WHERE s.quantity <= p.reorder_level`;
   const lowStockCount = Array.isArray(raw) && raw[0] ? Number((raw[0] as any).cnt ?? 0) : 0;
 
-  return inventorySummarySchema.parse({ totalProducts, totalStock, lowStockCount });
+  return serializeForClient(
+    inventorySummarySchema.parse({ totalProducts, totalStock, lowStockCount })
+  );
 }
 
 export async function fetchInventoryAlerts() {
@@ -116,12 +119,12 @@ export async function fetchInventoryAlerts() {
     });
   });
 
-  return alerts;
+  return serializeForClient(alerts);
 }
 
 export async function fetchCategories() {
   const db = await getDb();
-  return db.category.findMany({
+  const categories = await db.category.findMany({
     include: {
       _count: {
         select: { products: true },
@@ -129,11 +132,12 @@ export async function fetchCategories() {
     },
     orderBy: { name: "asc" },
   });
+  return serializeForClient(categories);
 }
 
 export async function fetchBrands() {
   const db = await getDb();
-  return db.brand.findMany({
+  const brands = await db.brand.findMany({
     include: {
       _count: {
         select: { products: true },
@@ -141,6 +145,7 @@ export async function fetchBrands() {
     },
     orderBy: { name: "asc" },
   });
+  return serializeForClient(brands);
 }
 
 export default fetchInventoryItems;

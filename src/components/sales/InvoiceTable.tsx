@@ -4,12 +4,13 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/DataTable";
-import { formatNPR, formatDate } from "@/lib/utils";
+import { formatNPR } from "@/lib/utils";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { SalesInvoiceSchema } from "@/modules/sales/types";
 import { InvoicePreviewModal } from "./InvoicePreviewModal";
 import { RecordPaymentModal } from "./RecordPaymentModal";
 import { CreateReturnModal } from "./CreateReturnModal";
+import { Eye, RotateCcw } from "lucide-react";
 
 interface InvoiceTableProps {
   invoices: SalesInvoiceSchema[];
@@ -60,12 +61,7 @@ export function InvoiceTable({ invoices }: InvoiceTableProps) {
     {
       accessorKey: "invoiceDate",
       header: "Date",
-      cell: ({ row }) => <span className="text-sm">{formatDate(row.original.invoiceDate)}</span>,
-    },
-    {
-      id: "items",
-      header: "Items",
-      cell: ({ row }) => <span className="text-sm">{row.original.items.length}</span>,
+      cell: ({ row }) => <span className="text-sm font-medium">{row.original.invoiceDate.split("T")[0]}</span>,
     },
     {
       accessorKey: "totalAmount",
@@ -97,48 +93,57 @@ export function InvoiceTable({ invoices }: InvoiceTableProps) {
     {
       id: "actions",
       header: "Actions",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setSelectedInvoice(row.original);
-              setShowPreview(true);
-            }}
-          >
-            View/Print
-          </Button>
-          
-          {Number(row.original.balanceAmount) > 0 && row.original.status !== "CANCELLED" && (
+      cell: ({ row }) => {
+        const hasPayment = Number(row.original.balanceAmount) > 0 && row.original.status !== "CANCELLED";
+        const hasReturn = row.original.status !== "CANCELLED" && row.original.status !== "DRAFT";
+        return (
+          <div className="grid grid-cols-2 gap-1">
+            {/* Row 1: View (always) + Payment (conditional) */}
             <Button
               variant="outline"
               size="sm"
-              className="border-green-200 hover:bg-green-50 text-green-700 dark:border-green-900/30 dark:hover:bg-green-950/20"
               onClick={() => {
                 setSelectedInvoice(row.original);
-                setShowPay(true);
+                setShowPreview(true);
               }}
+              className="h-7 px-2 border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 gap-1 rounded text-xs font-semibold col-span-1"
             >
-              Payment
+              <Eye size={12} /> View
             </Button>
-          )}
 
-          {row.original.status !== "CANCELLED" && row.original.status !== "DRAFT" && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-amber-200 hover:bg-amber-50 text-amber-700 dark:border-amber-900/30 dark:hover:bg-amber-950/20"
-              onClick={() => {
-                setSelectedInvoice(row.original);
-                setShowReturn(true);
-              }}
-            >
-              Return
-            </Button>
-          )}
-        </div>
-      ),
+            {hasPayment ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 border-green-200 hover:bg-green-50 text-green-700 rounded text-xs font-semibold col-span-1"
+                onClick={() => {
+                  setSelectedInvoice(row.original);
+                  setShowPay(true);
+                }}
+              >
+                Pay
+              </Button>
+            ) : (
+              <span className="col-span-1" />
+            )}
+
+            {/* Row 2: Return (conditional, spans 2 if alone) */}
+            {hasReturn && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 border-amber-200 hover:bg-amber-50 text-amber-700 gap-1 rounded text-xs font-semibold col-span-2"
+                onClick={() => {
+                  setSelectedInvoice(row.original);
+                  setShowReturn(true);
+                }}
+              >
+                <RotateCcw size={11} /> Return
+              </Button>
+            )}
+          </div>
+        );
+      },
     },
   ];
 

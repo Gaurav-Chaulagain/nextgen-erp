@@ -1,6 +1,7 @@
 import { getDb } from "@/lib/db";
 import Decimal from "decimal.js";
 import { z } from "zod";
+import { serializeForClient } from "@/lib/utils";
 import type { ProjectStatus } from "./types";
 import {
   projectSchema,
@@ -94,10 +95,10 @@ export async function getProjects(opts: GetProjectsOptions = {}) {
     })
   );
 
-  return {
+  return serializeForClient({
     data: zArrayParser(projectProfitabilitySchema, data),
     pagination: { page, pageSize, total },
-  };
+  });
 }
 
 export async function getProjectById(id: string) {
@@ -201,11 +202,11 @@ export async function getProjectById(id: string) {
     dateUsed: tx.createdAt.toISOString(),
   }));
 
-  return {
+  return serializeForClient({
     project: mappedProject,
     billings: zArrayParser(projectBillingSchema, mappedBillings),
     materialUsage: zArrayParser(materialUsageSchema, mappedMaterialUsage),
-  };
+  });
 }
 
 export async function getProjectStats() {
@@ -257,13 +258,15 @@ export async function getProjectStats() {
     ? totalProfit.div(totalRevenue).times(100)
     : new Decimal(0);
 
-  return projectStatsSchema.parse({
-    activeCount,
-    totalRevenue: totalRevenue.toString(),
-    totalCost: totalCost.toString(),
-    totalProfit: totalProfit.toString(),
-    avgMarginPercent: avgMarginPercent.toFixed(1),
-  });
+  return serializeForClient(
+    projectStatsSchema.parse({
+      activeCount,
+      totalRevenue: totalRevenue.toString(),
+      totalCost: totalCost.toString(),
+      totalProfit: totalProfit.toString(),
+      avgMarginPercent: avgMarginPercent.toFixed(1),
+    })
+  );
 }
 
 export async function getProjectProfitability(projectId?: string) {
@@ -326,7 +329,7 @@ export async function getProjectProfitability(projectId?: string) {
     })
   );
 
-  return zArrayParser(projectProfitabilitySchema, data);
+  return serializeForClient(zArrayParser(projectProfitabilitySchema, data));
 }
 
 export async function getMaterialUsage(projectId: string) {
@@ -363,7 +366,7 @@ export async function getMaterialUsage(projectId: string) {
     dateUsed: tx.createdAt.toISOString(),
   }));
 
-  return zArrayParser(materialUsageSchema, data);
+  return serializeForClient(zArrayParser(materialUsageSchema, data));
 }
 
 export async function getProjectBillings(projectId: string) {
@@ -386,7 +389,7 @@ export async function getProjectBillings(projectId: string) {
     status: b.invoice.status,
   }));
 
-  return zArrayParser(projectBillingSchema, data);
+  return serializeForClient(zArrayParser(projectBillingSchema, data));
 }
 
 export async function getProjectLookups() {
@@ -405,7 +408,7 @@ export async function getProjectLookups() {
     db.warehouse.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
   ]);
 
-  return {
+  return serializeForClient({
     clients: clients.map((c) => ({
       id: c.id,
       name: c.name,
@@ -431,7 +434,7 @@ export async function getProjectLookups() {
       id: w.id,
       name: w.name,
     })),
-  };
+  });
 }
 
 // Small helper to parse array schemas strictly without throwing on empty values

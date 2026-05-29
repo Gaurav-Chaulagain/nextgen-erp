@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import Decimal from "decimal.js";
 import type { InvoiceStatus, InvoiceType, PaymentMethod, PaymentMode } from "@/generated/prisma/client";
+import { nextCode, serializeForClient } from "@/lib/utils";
 import {
   createCustomerSchema,
   createInvoiceSchema,
@@ -54,15 +55,6 @@ function statusFromAmounts(total: Decimal, paid: Decimal, dueDate?: Date | null)
   return "SENT";
 }
 
-async function nextCode(tx: any, model: "salesInvoice" | "customer", field: "invoiceNumber" | "code", prefix: string) {
-  const latest = await tx[model].findFirst({
-    where: { [field]: { startsWith: `${prefix}-` } },
-    orderBy: { [field]: "desc" },
-  });
-  const latestNumber = latest?.[field]?.split("-").at(-1);
-  const nextNumber = Number.parseInt(latestNumber ?? "0", 10) + 1;
-  return `${prefix}-${String(nextNumber).padStart(4, "0")}`;
-}
 
 async function latestCustomerBalance(tx: any, customerId: string) {
   const latest = await tx.ledgerEntry.findFirst({
@@ -415,11 +407,30 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
 
   const result = await db.$transaction(async (tx) => {
     let returnValue = new Decimal(0);
+    const returnNumber = await nextCode(tx, "salesReturn", "returnNumber", "SRN");
+
+    // Create the master SalesReturn document first
+    const salesReturn = await tx.salesReturn.create({
+      data: {
+        returnNumber,
+        customerId: invoice.customerId,
+        invoiceId: invoice.id,
+        returnDate: new Date(),
+        status: "PROCESSED",
+        refundMethod: parsed.refundMethod,
+        totalAmount: new Decimal(0), // will update below
+        notes: parsed.reason,
+        createdBy,
+      },
+    });
+
+    const returnItemsData = [];
 
     for (const returnItem of parsed.items) {
       const invoiceItem = invoice.items.find((item) => item.id === returnItem.invoiceItemId);
       if (!invoiceItem) throw new Error(`Invoice item ${returnItem.invoiceItemId} not found`);
 
+      // Check max returnable qty
       const existingReturns = await tx.stockTransaction.aggregate({
         where: {
           type: "RETURN_IN",
@@ -438,6 +449,7 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
       const lineReturnValue = perUnitValue.times(returnItem.qty);
       returnValue = returnValue.plus(lineReturnValue);
 
+      // Increment stock quantity
       await tx.inventoryStock.upsert({
         where: { productId_warehouseId: { productId: invoiceItem.productId, warehouseId: invoiceItem.warehouseId } },
         update: { quantity: { increment: returnItem.qty } },
@@ -449,6 +461,7 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
         },
       });
 
+      // Stock transaction entry
       await tx.stockTransaction.create({
         data: {
           type: "RETURN_IN",
@@ -457,13 +470,33 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
           quantity: returnItem.qty,
           unitCost: perUnitValue,
           referenceType: "SALES_RETURN",
-          referenceId: invoice.id,
+          referenceId: salesReturn.id,
           notes: parsed.reason,
           userId: createdBy,
         },
       });
+
+      // Create SalesReturnItem
+      await tx.salesReturnItem.create({
+        data: {
+          salesReturnId: salesReturn.id,
+          productId: invoiceItem.productId,
+          qty: returnItem.qty,
+          unitPrice: perUnitValue,
+          totalPrice: lineReturnValue,
+          warehouseId: invoiceItem.warehouseId,
+          notes: parsed.reason,
+        },
+      });
     }
 
+    // Update SalesReturn with actual total
+    await tx.salesReturn.update({
+      where: { id: salesReturn.id },
+      data: { totalAmount: returnValue },
+    });
+
+    // Ledger Credit Bookkeeping (receivables decremented)
     const runningBalance = (await latestCustomerBalance(tx, invoice.customerId)).minus(returnValue);
     await tx.ledgerEntry.create({
       data: {
@@ -473,14 +506,31 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
         entryType: "CREDIT",
         amount: returnValue,
         referenceType: "SALES_RETURN",
-        referenceId: invoice.id,
-        description: `Return against invoice ${invoice.invoiceNumber}: ${parsed.reason}`,
+        referenceId: salesReturn.id,
+        description: `Return ${returnNumber} against invoice ${invoice.invoiceNumber}: ${parsed.reason}`,
         runningBalance,
         channelType: invoice.invoiceType,
         createdBy,
       },
     });
 
+    // Cash Book Integration (PAID entry since cash is paid out as refund)
+    await tx.cashBookEntry.create({
+      data: {
+        entryDate: new Date(),
+        type: "PAID",
+        amount: returnValue,
+        description: `Refund for Sales Return ${returnNumber} against INV ${invoice.invoiceNumber}`,
+        partyType: "CUSTOMER",
+        partyId: invoice.customerId,
+        referenceType: "SALES_RETURN",
+        referenceId: salesReturn.id,
+        paymentMethod: parsed.refundMethod,
+        createdBy,
+      },
+    });
+
+    // Update original Invoice totals
     const adjustedTotal = toDecimal(invoice.totalAmount).minus(returnValue);
     const nextTotal = adjustedTotal.lessThan(0) ? new Decimal(0) : adjustedTotal;
     const nextBalance = nextTotal.minus(invoice.paidAmount);
@@ -498,8 +548,8 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
         userId: createdBy,
         action: "RETURN",
         module: "SALES",
-        recordId: invoice.id,
-        newValues: { reason: parsed.reason, returnValue: returnValue.toString(), items: parsed.items },
+        recordId: salesReturn.id,
+        newValues: { reason: parsed.reason, returnValue: returnValue.toString(), returnNumber },
       },
     });
 
@@ -682,6 +732,11 @@ export async function deleteCustomer(id: string, userId?: string) {
     revalidatePath("/sales");
     return deleted;
   });
+}
+
+export async function fetchInvoiceByIdAction(id: string) {
+  const invoice = await getInvoiceById(id);
+  return serializeForClient(invoice);
 }
 
 

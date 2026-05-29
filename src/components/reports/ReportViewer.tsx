@@ -10,13 +10,17 @@ import {
   fetchSalesSummaryAction,
   fetchItemWiseSalesAction,
   fetchAgingReportAction,
-  fetchStockValuationAction,
-  fetchABCAnalysisAction,
   fetchProjectProfitabilityAction,
   fetchCashFlowAction,
   fetchPurchaseSummaryAction,
   fetchVendorOutstandingAction
 } from "@/modules/accounting/actions";
+import {
+  fetchInvoiceByIdAction
+} from "@/modules/sales/actions";
+import {
+  fetchPOByIdAction
+} from "@/modules/purchase/actions";
 import {
   exportProfitLossExcel,
   exportTradingAccountExcel,
@@ -25,8 +29,6 @@ import {
   exportSalesSummaryExcel,
   exportItemWiseSalesExcel,
   exportAgingExcel,
-  exportStockValuationExcel,
-  exportABCAnalysisExcel,
   exportProjectProfitabilityExcel,
   exportCashFlowExcel,
   exportPurchaseSummaryExcel,
@@ -42,8 +44,6 @@ import {
   downloadCashFlowPDF,
   downloadSalesSummaryPDF,
   downloadItemWiseSalesPDF,
-  downloadStockValuationPDF,
-  downloadABCAnalysisPDF,
   downloadPurchaseSummaryPDF,
   downloadVendorOutstandingPDF
 } from "@/lib/export/reports-pdf";
@@ -57,6 +57,11 @@ import { CashFlowReport } from "./CashFlowReport";
 import { NPRAmount } from "@/components/shared/NPRAmount";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar, Download, RefreshCw, BarChart, ShoppingBag } from "lucide-react";
+import { InvoicePreviewModal } from "@/components/sales/InvoicePreviewModal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface ReportViewerProps {
   reportKey: string;
@@ -66,6 +71,13 @@ interface ReportViewerProps {
 export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
+
+  // Detail view states
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [selectedPO, setSelectedPO] = useState<any>(null);
+  const [showPOPreview, setShowPOPreview] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   // Filters state
   const todayStr = new Date().toISOString().split("T")[0];
@@ -77,6 +89,42 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
   const [dateFrom, setDateFrom] = useState<string>(lastMonthStr);
   const [dateTo, setDateTo] = useState<string>(todayStr);
   const [channel, setChannel] = useState<string>("ALL");
+
+  const handleViewInvoice = async (id: string) => {
+    setLoadingDetail(true);
+    try {
+      const inv = await fetchInvoiceByIdAction(id);
+      if (inv) {
+        setSelectedInvoice(inv);
+        setShowInvoicePreview(true);
+      } else {
+        toast.error("Invoice details not found");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to load invoice details");
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleViewPO = async (id: string) => {
+    setLoadingDetail(true);
+    try {
+      const po = await fetchPOByIdAction(id);
+      if (po) {
+        setSelectedPO(po);
+        setShowPOPreview(true);
+      } else {
+        toast.error("Purchase Order details not found");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to load Purchase Order details");
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
 
   // Fetch Report Data
   const generateReport = async () => {
@@ -105,12 +153,6 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
           break;
         case "customer_aging":
           res = await fetchAgingReportAction();
-          break;
-        case "stock_valuation":
-          res = await fetchStockValuationAction();
-          break;
-        case "abc_analysis":
-          res = await fetchABCAnalysisAction();
           break;
         case "project_profitability":
           res = await fetchProjectProfitabilityAction();
@@ -171,12 +213,6 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
         case "customer_aging":
           blob = exportAgingExcel(reportData);
           break;
-        case "stock_valuation":
-          blob = exportStockValuationExcel(reportData);
-          break;
-        case "abc_analysis":
-          blob = exportABCAnalysisExcel(reportData);
-          break;
         case "project_profitability":
           blob = exportProjectProfitabilityExcel(reportData);
           break;
@@ -236,12 +272,6 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
           break;
         case "item_wise_sales":
           blob = await downloadItemWiseSalesPDF(reportData);
-          break;
-        case "stock_valuation":
-          blob = await downloadStockValuationPDF(reportData);
-          break;
-        case "abc_analysis":
-          blob = await downloadABCAnalysisPDF(reportData);
           break;
         case "purchase_summary":
           blob = await downloadPurchaseSummaryPDF(reportData);
@@ -450,39 +480,53 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
             </Card>
           )}
 
-          {/* 5. SALES SUMMARY (Grid + Simple Table) */}
+          {/* 5. SALES SUMMARY (Chronological log of individual Invoices) */}
           {reportKey === "sales_summary" && (
             <Card className="border border-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 shadow-md rounded-3xl overflow-hidden">
               <div className="bg-zinc-900 text-zinc-100 p-6 flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold tracking-tight">Sales Chronological log</h2>
-                  <p className="text-xs text-zinc-400 font-medium mt-1">Daily taxable sales amounts between {dateFrom} and {dateTo}</p>
+                  <h2 className="text-xl font-bold tracking-tight">Sales Chronological Log</h2>
+                  <p className="text-xs text-zinc-400 font-medium mt-1">Taxable sales invoices between {dateFrom} and {dateTo}</p>
                 </div>
                 <div className="p-3 bg-zinc-800 rounded-2xl"><BarChart className="h-5 w-5 text-indigo-400" /></div>
               </div>
               <CardContent className="p-8">
                 <div className="border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden text-sm font-semibold">
-                  <div className="grid grid-cols-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  <div className="grid grid-cols-5 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">
                     <span>Date</span>
-                    <span className="text-right">Daily Invoice count</span>
+                    <span>Invoice Number</span>
+                    <span>Customer Name</span>
                     <span className="text-right">Taxable Sales Amount</span>
+                    <span className="text-right">Action</span>
                   </div>
                   <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60 max-h-[400px] overflow-y-auto">
                     {reportData.map((r: any, idx: number) => (
-                      <div key={idx} className="grid grid-cols-3 px-6 py-3">
+                      <div key={idx} className="grid grid-cols-5 px-6 py-3.5 items-center">
                         <span className="text-zinc-800 dark:text-zinc-200">{r.date}</span>
-                        <span className="text-right text-zinc-800 dark:text-zinc-200">{r.count}</span>
+                        <span className="font-mono text-zinc-800 dark:text-zinc-200">{r.invoiceNumber} <span className="text-[10px] text-zinc-400 font-bold font-sans uppercase">({r.channel})</span></span>
+                        <span className="text-zinc-800 dark:text-zinc-200 truncate">{r.customerName}</span>
                         <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={r.amount} /></span>
+                        <div className="text-right">
+                          <button
+                            onClick={() => handleViewInvoice(r.id)}
+                            disabled={loadingDetail}
+                            className="px-3 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-200 text-xs rounded-lg border border-zinc-200/40 dark:border-zinc-800/40 font-bold transition-all disabled:opacity-50"
+                          >
+                            View
+                          </button>
+                        </div>
                       </div>
                     ))}
                     {reportData.length === 0 && (
-                      <div className="p-8 text-center text-zinc-400">No sales logged in this period.</div>
+                      <div className="p-8 text-center text-zinc-400 col-span-5">No invoices found in this period.</div>
                     )}
                   </div>
-                  <div className="grid grid-cols-3 px-6 py-5 items-center bg-zinc-50/50 dark:bg-zinc-900/30 font-extrabold border-t border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 uppercase tracking-wider text-xs">
-                    <span>TOTAL COMPILATION</span>
-                    <span className="text-right">{reportData.reduce((acc: number, curr: any) => acc + curr.count, 0)}</span>
+                  <div className="grid grid-cols-5 px-6 py-5 items-center bg-zinc-50/50 dark:bg-zinc-900/30 font-extrabold border-t border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 uppercase tracking-wider text-xs">
+                    <span>RUNNING BALANCE TOTAL</span>
+                    <span>-</span>
+                    <span>{reportData.length} Invoices</span>
                     <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={reportData.reduce((acc: number, curr: any) => acc + curr.amount, 0)} /></span>
+                    <span>-</span>
                   </div>
                 </div>
               </CardContent>
@@ -527,87 +571,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
             </Card>
           )}
 
-          {/* 8. STOCK VALUATION (FIFO) */}
-          {reportKey === "stock_valuation" && (
-            <Card className="border border-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 shadow-md rounded-3xl overflow-hidden">
-              <div className="bg-zinc-900 text-zinc-100 p-6 flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold tracking-tight">FIFO Inventory Stock Valuation</h2>
-                  <p className="text-xs text-zinc-400 font-medium mt-1">Real-time valuation based on chronological procurement costs</p>
-                </div>
-                <div className="p-3 bg-zinc-800 rounded-2xl"><RefreshCw className="h-5 w-5 text-indigo-400" /></div>
-              </div>
-              <CardContent className="p-8">
-                <div className="border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden text-sm font-semibold">
-                  <div className="grid grid-cols-5 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">
-                    <span>Item Code</span>
-                    <span className="col-span-2">Product Description Particulars</span>
-                    <span className="text-right">In-Stock Qty</span>
-                    <span className="text-right">FIFO Valuation</span>
-                  </div>
-                  <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                    {reportData.map((r: any, idx: number) => (
-                      <div key={idx} className="grid grid-cols-5 px-6 py-3.5 items-center">
-                        <span className="text-xs font-bold text-zinc-400">{r.code}</span>
-                        <span className="col-span-2 text-zinc-800 dark:text-zinc-200">{r.name} <span className="text-[10px] text-zinc-400 font-medium"> (Avg Cost: <NPRAmount amount={r.avgCost} />)</span></span>
-                        <span className="text-right text-zinc-800 dark:text-zinc-200">{r.currentStock}</span>
-                        <span className="text-right text-zinc-900 dark:text-zinc-50 font-bold"><NPRAmount amount={r.totalValuation} /></span>
-                      </div>
-                    ))}
-                    <div className="grid grid-cols-5 px-6 py-5 items-center bg-zinc-50/50 dark:bg-zinc-900/30 font-extrabold border-t border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 uppercase tracking-wider text-xs">
-                      <span>-</span>
-                      <span className="col-span-2">AGGREGATED INVENTORY VALUE</span>
-                      <span className="text-right">{reportData.reduce((acc: number, curr: any) => acc + curr.currentStock, 0)}</span>
-                      <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={reportData.reduce((acc: number, curr: any) => acc + curr.totalValuation, 0)} /></span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
-          {/* 9. ABC ANALYSIS */}
-          {reportKey === "abc_analysis" && (
-            <Card className="border border-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 shadow-md rounded-3xl overflow-hidden">
-              <div className="bg-zinc-900 text-zinc-100 p-6 flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold tracking-tight">ABC Revenue Pareto Categorization</h2>
-                  <p className="text-xs text-zinc-400 font-medium mt-1">Products classified into A (Top 70% share), B (Next 20%), C (Bottom 10%)</p>
-                </div>
-                <div className="p-3 bg-zinc-800 rounded-2xl"><RefreshCw className="h-5 w-5 text-indigo-400" /></div>
-              </div>
-              <CardContent className="p-8">
-                <div className="border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden text-sm font-semibold">
-                  <div className="grid grid-cols-6 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">
-                    <span>Item Code</span>
-                    <span className="col-span-2">Product Description Name</span>
-                    <span className="text-right">Revenue Earned</span>
-                    <span className="text-right">Share %</span>
-                    <span className="text-center">ABC Class</span>
-                  </div>
-                  <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                    {reportData.map((r: any, idx: number) => {
-                      const isA = r.category === "A";
-                      const isB = r.category === "B";
-                      return (
-                        <div key={idx} className="grid grid-cols-6 px-6 py-3.5 items-center">
-                          <span className="text-xs font-bold text-zinc-400">{r.code}</span>
-                          <span className="col-span-2 text-zinc-800 dark:text-zinc-200">{r.name}</span>
-                          <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={r.revenue} /></span>
-                          <span className="text-right text-zinc-500">{r.percentage.toFixed(2)}% <span className="text-[10px] text-zinc-400">(cum: {r.cumulativePercentage.toFixed(1)}%)</span></span>
-                          <span className="text-center">
-                            <span className={`px-3 py-1 text-xs font-extrabold rounded-xl ${isA ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400" : isB ? "bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400" : "bg-zinc-100 text-zinc-500 dark:bg-zinc-850 dark:text-zinc-400"}`}>
-                              Class {r.category}
-                            </span>
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {/* 10. PROJECT PROFITABILITY */}
           {reportKey === "project_profitability" && (
@@ -656,44 +620,183 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
               </CardContent>
             </Card>
           )}
-          {/* 12. PURCHASE SUMMARY (similar to sales_summary) */}
+          {/* 12. PURCHASE SUMMARY (Chronological log of individual Purchase Orders) */}
           {reportKey === "purchase_summary" && (
             <Card className="border border-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 shadow-md rounded-3xl overflow-hidden">
               <div className="bg-zinc-900 text-zinc-100 p-6 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold tracking-tight">Purchase Chronological Log</h2>
-                  <p className="text-xs text-zinc-400 font-medium mt-1">Daily procurement purchase amounts between {dateFrom} and {dateTo}</p>
+                  <p className="text-xs text-zinc-400 font-medium mt-1">Procurement purchase orders between {dateFrom} and {dateTo}</p>
                 </div>
                 <div className="p-3 bg-zinc-800 rounded-2xl"><BarChart className="h-5 w-5 text-indigo-400" /></div>
               </div>
               <CardContent className="p-8">
                 <div className="border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden text-sm font-semibold">
-                  <div className="grid grid-cols-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  <div className="grid grid-cols-5 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">
                     <span>Date</span>
-                    <span className="text-right">Daily Purchase Count</span>
-                    <span className="text-right">Taxable Purchase Amount</span>
+                    <span>PO Number</span>
+                    <span>Vendor Name</span>
+                    <span className="text-right">Purchase Amount</span>
+                    <span className="text-right">Action</span>
                   </div>
                   <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60 max-h-[400px] overflow-y-auto">
                     {reportData.map((r: any, idx: number) => (
-                      <div key={idx} className="grid grid-cols-3 px-6 py-3">
+                      <div key={idx} className="grid grid-cols-5 px-6 py-3.5 items-center">
                         <span className="text-zinc-800 dark:text-zinc-200">{r.date}</span>
-                        <span className="text-right text-zinc-800 dark:text-zinc-200">{r.count}</span>
+                        <span className="font-mono text-zinc-800 dark:text-zinc-200">{r.poNumber}</span>
+                        <span className="text-zinc-800 dark:text-zinc-200 truncate">{r.vendorName}</span>
                         <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={r.amount} /></span>
+                        <div className="text-right">
+                          <button
+                            onClick={() => handleViewPO(r.id)}
+                            disabled={loadingDetail}
+                            className="px-3 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-200 text-xs rounded-lg border border-zinc-200/40 dark:border-zinc-800/40 font-bold transition-all disabled:opacity-50"
+                          >
+                            View
+                          </button>
+                        </div>
                       </div>
                     ))}
                     {reportData.length === 0 && (
-                      <div className="p-8 text-center text-zinc-400">No purchases logged in this period.</div>
+                      <div className="p-8 text-center text-zinc-400 col-span-5">No purchase orders found in this period.</div>
                     )}
                   </div>
-                  <div className="grid grid-cols-3 px-6 py-5 items-center bg-zinc-50/50 dark:bg-zinc-900/30 font-extrabold border-t border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 uppercase tracking-wider text-xs">
-                    <span>TOTAL COMPILATION</span>
-                    <span className="text-right">{reportData.reduce((acc: number, curr: any) => acc + curr.count, 0)}</span>
+                  <div className="grid grid-cols-5 px-6 py-5 items-center bg-zinc-50/50 dark:bg-zinc-900/30 font-extrabold border-t border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 uppercase tracking-wider text-xs">
+                    <span>RUNNING BALANCE TOTAL</span>
+                    <span>-</span>
+                    <span>{reportData.length} Purchase Orders</span>
                     <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={reportData.reduce((acc: number, curr: any) => acc + curr.amount, 0)} /></span>
+                    <span>-</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
           )}
+
+      {/* Invoice Preview Modal */}
+      {selectedInvoice && showInvoicePreview && (
+        <InvoicePreviewModal
+          open={showInvoicePreview}
+          onOpenChange={setShowInvoicePreview}
+          invoice={selectedInvoice}
+        />
+      )}
+
+      {/* Premium Purchase Order Detail Dialog */}
+      <Dialog open={showPOPreview} onOpenChange={setShowPOPreview}>
+        <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-y-auto bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100">
+          <DialogHeader className="border-b border-zinc-150 dark:border-zinc-800 pb-3">
+            <div className="flex justify-between items-center pr-6">
+              <DialogTitle className="text-xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-50">
+                <ShoppingBag size={20} className="text-blue-500" /> Purchase Order Details: <span className="font-mono text-zinc-500">{selectedPO?.poNumber}</span>
+              </DialogTitle>
+              {selectedPO && (
+                <Badge className="bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900/40 px-3 py-1 font-semibold rounded-full shadow-none text-[10px]">
+                  {selectedPO.status}
+                </Badge>
+              )}
+            </div>
+            <DialogDescription className="sr-only">Detailed view of products requested and received status</DialogDescription>
+          </DialogHeader>
+
+          {selectedPO ? (
+            <div className="space-y-6 pt-4 flex-grow flex flex-col">
+              {/* Header Overview Card */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-zinc-50/50 dark:bg-zinc-900/30 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+                <div className="space-y-1.5">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Supplier Particulars</h3>
+                  <div className="font-bold text-zinc-900 dark:text-zinc-200">{selectedPO.supplierName}</div>
+                  {selectedPO.supplierPanNumber && <div className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">PAN: {selectedPO.supplierPanNumber}</div>}
+                  {selectedPO.supplierPhone && <div className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">Phone: {selectedPO.supplierPhone}</div>}
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Procurement Schedule</h3>
+                  <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Order Date: <span className="text-zinc-900 dark:text-zinc-200 font-bold">{formatDate(selectedPO.orderDate)}</span></div>
+                  <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Expected: <span className="text-zinc-900 dark:text-zinc-200 font-bold">{selectedPO.expectedDate ? formatDate(selectedPO.expectedDate) : "—"}</span></div>
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Accounts Summary</h3>
+                  <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Net total: <span className="text-zinc-900 dark:text-zinc-100 font-bold"><NPRAmount amount={Number(selectedPO.totalAmount)} /></span></div>
+                  <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Paid so far: <span className="text-zinc-550 dark:text-zinc-400 font-bold"><NPRAmount amount={Number(selectedPO.paidAmount)} /></span></div>
+                  <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Remaining Balance: <span className="text-amber-600 dark:text-amber-500 font-extrabold"><NPRAmount amount={Number(selectedPO.balance)} /></span></div>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div className="flex-grow">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-3">Requested items</h3>
+                <div className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+                  <table className="w-full text-left border-collapse text-sm text-zinc-800 dark:text-zinc-300">
+                    <thead>
+                      <tr className="bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800 text-xs font-bold uppercase tracking-wider">
+                        <th className="px-5 py-3">Code</th>
+                        <th className="px-5 py-3">Product Name</th>
+                        <th className="px-5 py-3 text-right">Ordered Qty</th>
+                        <th className="px-5 py-3 text-right">Received Qty</th>
+                        <th className="px-5 py-3 text-right">Unit Price</th>
+                        <th className="px-5 py-3 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-200 dark:divide-zinc-850 text-zinc-800 dark:text-zinc-300 font-medium">
+                      {selectedPO.items.map((item: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30">
+                          <td className="px-5 py-3 font-mono text-xs text-zinc-500">{item.productCode}</td>
+                          <td className="px-5 py-3 text-zinc-900 dark:text-zinc-200">{item.productName}</td>
+                          <td className="px-5 py-3 text-right">{item.orderedQty} <span className="text-xs text-zinc-500 font-sans">{item.productUnit}</span></td>
+                          <td className="px-5 py-3 text-right text-emerald-600 dark:text-emerald-400">{item.receivedQty} <span className="text-xs text-zinc-500 font-sans">{item.productUnit}</span></td>
+                          <td className="px-5 py-3 text-right"><NPRAmount amount={Number(item.unitPrice)} /></td>
+                          <td className="px-5 py-3 text-right text-zinc-900 dark:text-zinc-200"><NPRAmount amount={Number(item.totalPrice)} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Payments History section if any */}
+              {selectedPO.payments && selectedPO.payments.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-3">Bookkept Payments</h3>
+                  <div className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+                    <table className="w-full text-left border-collapse text-sm text-zinc-800 dark:text-zinc-300">
+                      <thead>
+                        <tr className="bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800 text-xs font-bold uppercase tracking-wider">
+                          <th className="px-5 py-3">Payment Date</th>
+                          <th className="px-5 py-3">Method</th>
+                          <th className="px-5 py-3">Notes / Ref</th>
+                          <th className="px-5 py-3 text-right">Amount Paid</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-200 dark:divide-zinc-850 text-zinc-800 dark:text-zinc-300 font-medium">
+                        {selectedPO.payments.map((p: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30">
+                            <td className="px-5 py-3 text-zinc-600 dark:text-zinc-400">{formatDate(p.paymentDate)}</td>
+                            <td className="px-5 py-3">
+                              <Badge variant="outline" className="border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-mono text-[10px] shadow-none">
+                                {p.paymentMethod}
+                              </Badge>
+                            </td>
+                            <td className="px-5 py-3 text-zinc-650 dark:text-zinc-400 text-xs italic">{p.notes || "No notes"}</td>
+                            <td className="px-5 py-3 text-right text-zinc-900 dark:text-zinc-200 font-bold"><NPRAmount amount={Number(p.amount)} /></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-500">No purchase order selected.</p>
+          )}
+
+          <DialogFooter className="border-t border-zinc-150 dark:border-zinc-800 pt-3">
+            <Button variant="outline" className="border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800" onClick={() => setShowPOPreview(false)}>
+              Close View
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
           {/* 13. VENDOR OUTSTANDING PAYABLES */}
           {reportKey === "vendor_outstanding" && (

@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import Decimal from "decimal.js";
 import type { PaymentMode } from "@/generated/prisma/client";
+import { nextCode, serializeForClient } from "@/lib/utils";
 import {
   addPOItemSchema,
   createPurchaseOrderSchema,
@@ -12,7 +13,6 @@ import {
   recordPurchasePaymentSchema,
   updatePurchaseOrderSchema,
   updateSupplierSchema,
-  uploadBillSchema,
   type AddPOItemInput,
   type CreatePurchaseOrderInput,
   type CreateSupplierInput,
@@ -20,7 +20,6 @@ import {
   type RecordPurchasePaymentInput,
   type UpdatePurchaseOrderInput,
   type UpdateSupplierInput,
-  type UploadBillInput,
 } from "./types";
 import { getPOById, getSuppliers, getActiveProducts, getVendorLedger } from "./queries";
 
@@ -36,15 +35,6 @@ function normalizePaymentMode(method: RecordPurchasePaymentInput["paymentMethod"
   return method === "BANK_TRANSFER" ? "BANK" : method;
 }
 
-async function nextCode(tx: any, model: "purchaseOrder" | "supplier", field: "poNumber" | "code", prefix: string) {
-  const latest = await tx[model].findFirst({
-    where: { [field]: { startsWith: `${prefix}-` } },
-    orderBy: { [field]: "desc" },
-  });
-  const latestNumber = latest?.[field]?.split("-").at(-1);
-  const nextNumber = Number.parseInt(latestNumber ?? "0", 10) + 1;
-  return `${prefix}-${String(nextNumber).padStart(4, "0")}`;
-}
 
 async function getLatestSupplierBalance(tx: any, supplierId: string) {
   const latest = await tx.ledgerEntry.findFirst({
@@ -241,9 +231,15 @@ export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
         throw new Error(`Cannot receive more than ${remainingQty} units for item ${poItem.id}`);
       }
 
+      const activePrice = toDecimal(receiveItem.receivedPrice);
+
       await tx.purchaseOrderItem.update({
         where: { id: receiveItem.poItemId },
-        data: { receivedQty: poItem.receivedQty + receiveItem.receivedQty },
+        data: {
+          receivedQty: poItem.receivedQty + receiveItem.receivedQty,
+          unitPrice: activePrice,
+          totalPrice: activePrice.times(poItem.orderedQty),
+        },
       });
 
       await tx.stockTransaction.create({
@@ -252,7 +248,7 @@ export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
           productId: poItem.productId,
           warehouseId: parsed.warehouseId,
           quantity: receiveItem.receivedQty,
-          unitCost: poItem.unitPrice,
+          unitCost: activePrice,
           referenceType: "PURCHASE_ORDER",
           referenceId: po.id,
           notes: parsed.notes ?? `Received from PO ${po.poNumber}`,
@@ -271,12 +267,16 @@ export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
         },
       });
 
-      receivedValue = receivedValue.plus(toDecimal(poItem.unitPrice).times(receiveItem.receivedQty));
+      receivedValue = receivedValue.plus(activePrice.times(receiveItem.receivedQty));
     }
 
     const refreshedItems = await tx.purchaseOrderItem.findMany({ where: { purchaseOrderId: po.id } });
     const allReceived = refreshedItems.every((item: any) => item.receivedQty >= item.orderedQty);
     const newStatus = allReceived ? "RECEIVED" : "PARTIAL";
+
+    const newSubtotal = refreshedItems.reduce((sum: Decimal, item: any) => sum.plus(new Decimal(item.unitPrice).times(item.orderedQty)), new Decimal(0));
+    const newTax = newSubtotal.times(0.13);
+    const newTotal = newSubtotal.plus(newTax);
 
     if (receivedValue.greaterThan(0)) {
       const previousBalance = await getLatestSupplierBalance(tx, po.supplierId);
@@ -297,7 +297,16 @@ export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
       });
     }
 
-    const updatedPO = await tx.purchaseOrder.update({ where: { id: parsed.purchaseOrderId }, data: { status: newStatus } });
+    const updatedPO = await tx.purchaseOrder.update({
+      where: { id: parsed.purchaseOrderId },
+      data: {
+        status: newStatus,
+        subtotal: newSubtotal,
+        taxAmount: newTax,
+        totalAmount: newTotal,
+      },
+    });
+
     await tx.auditLog.create({
       data: {
         userId,
@@ -398,32 +407,7 @@ export async function recordPurchasePayment(data: RecordPurchasePaymentInput, us
   return getPOById(result.id);
 }
 
-export async function uploadBill(data: UploadBillInput, userId: string) {
-  const parsed = uploadBillSchema.parse(data);
-  const db = await getDb();
 
-  const po = await db.purchaseOrder.findUnique({ where: { id: parsed.purchaseOrderId } });
-  if (!po) throw new Error("PO not found");
-
-  const result = await db.$transaction(async (tx) => {
-    const updated = await tx.purchaseOrder.update({
-      where: { id: parsed.purchaseOrderId },
-      data: { billImageUrl: parsed.billImageUrl },
-    });
-    await tx.auditLog.create({
-      data: {
-        userId,
-        action: "UPLOAD_BILL",
-        module: "PURCHASE",
-        recordId: parsed.purchaseOrderId,
-        newValues: { billImageUrl: parsed.billImageUrl },
-      },
-    });
-    return updated;
-  });
-
-  return getPOById(result.id);
-}
 
 export async function cancelPurchaseOrder(id: string, userId: string) {
   const db = await getDb();
@@ -543,6 +527,110 @@ export async function deleteSupplier(id: string, userId: string) {
     revalidatePath("/purchase");
     return deleted;
   });
+}
+
+export async function createPurchaseReturn(data: {
+  supplierId: string;
+  notes: string;
+  items: Array<{ productId: string; qty: number; unitPrice: number }>;
+}, userId: string) {
+  const db = await getDb();
+
+  const result = await db.$transaction(async (tx) => {
+    const returnNumber = await nextCode(tx, "purchaseReturn", "returnNumber", "PRN");
+    const totalAmount = data.items.reduce((sum, item) => sum.plus(new Decimal(item.unitPrice).times(item.qty)), new Decimal(0));
+
+    const pr = await tx.purchaseReturn.create({
+      data: {
+        returnNumber,
+        supplierId: data.supplierId,
+        returnDate: new Date(),
+        status: "PROCESSED",
+        totalAmount,
+        notes: data.notes,
+        createdBy: userId,
+      },
+    });
+
+    for (const item of data.items) {
+      await tx.purchaseReturnItem.create({
+        data: {
+          purchaseReturnId: pr.id,
+          productId: item.productId,
+          qty: item.qty,
+          unitPrice: new Decimal(item.unitPrice),
+          totalPrice: new Decimal(item.unitPrice).times(item.qty),
+        },
+      });
+
+      // Stock transaction RETURN_OUT (negative quantity)
+      const stock = await tx.inventoryStock.findFirst({
+        where: { productId: item.productId },
+      });
+      const warehouseId = stock?.warehouseId ?? (await tx.warehouse.findFirst({ select: { id: true } }))?.id;
+      if (!warehouseId) throw new Error("No warehouse configured to return stock from.");
+
+      await tx.stockTransaction.create({
+        data: {
+          type: "RETURN_OUT",
+          productId: item.productId,
+          warehouseId,
+          quantity: -item.qty,
+          unitCost: new Decimal(item.unitPrice),
+          referenceType: "PURCHASE_RETURN",
+          referenceId: pr.id,
+          notes: data.notes,
+          userId,
+        },
+      });
+
+      // Decrement inventory stock
+      if (stock) {
+        await tx.inventoryStock.update({
+          where: { id: stock.id },
+          data: { quantity: { decrement: item.qty } },
+        });
+      }
+    }
+
+    // Ledger DEBIT bookkeeping (our payables are reduced)
+    const previousBalance = await getLatestSupplierBalance(tx, data.supplierId);
+    await tx.ledgerEntry.create({
+      data: {
+        entryDate: new Date(),
+        partyType: "SUPPLIER",
+        partyId: data.supplierId,
+        entryType: "DEBIT",
+        amount: totalAmount,
+        referenceType: "PURCHASE_RETURN",
+        referenceId: pr.id,
+        description: `Purchase Return ${returnNumber}: ${data.notes}`,
+        runningBalance: previousBalance.minus(totalAmount),
+        channelType: "GENERAL",
+        createdBy: userId,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        userId,
+        action: "RETURN_OUT",
+        module: "PURCHASE",
+        recordId: pr.id,
+        newValues: { returnNumber, totalAmount: totalAmount.toString() },
+      },
+    });
+
+    return pr;
+  });
+
+  revalidatePath("/purchase");
+  return result;
+}
+
+export async function fetchPOByIdAction(id: string) {
+  const order = await getPOById(id);
+  return serializeForClient(order);
 }
 
 

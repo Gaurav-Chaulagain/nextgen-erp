@@ -52,6 +52,7 @@ export const receiveGoodsSchema = z.object({
       z.object({
         poItemId: z.string().min(1),
         receivedQty: z.number().int().positive("Received quantity must be positive"),
+        receivedPrice: moneyInput,
       })
     )
     .min(1, "At least one item must be received"),
@@ -72,12 +73,7 @@ export const recordPurchasePaymentSchema = z.object({
 
 export type RecordPurchasePaymentInput = z.infer<typeof recordPurchasePaymentSchema>;
 
-export const uploadBillSchema = z.object({
-  purchaseOrderId: z.string().min(1),
-  billImageUrl: z.string().min(1, "Bill URL is required"),
-});
 
-export type UploadBillInput = z.infer<typeof uploadBillSchema>;
 
 export const createSupplierSchema = z.object({
   code: z.string().optional(),
