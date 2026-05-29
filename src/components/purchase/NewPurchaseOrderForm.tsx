@@ -9,6 +9,7 @@ import { getPurchaseLookups, createPurchaseOrder, submitPurchaseOrder } from "@/
 import { createPurchaseOrderSchema } from "@/modules/purchase/types";
 import { toast } from "sonner";
 import { Plus, Trash2, Calendar, FileText, ShoppingBag } from "lucide-react";
+import { DualDatePicker } from "@/components/shared/DualDatePicker";
 
 interface LineItem {
   id: string;
@@ -208,22 +209,19 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">PO Date *</label>
-                <Input
-                  type="date"
+                <DualDatePicker
+                  label="PO Date"
                   value={poDate}
-                  onChange={(e) => setPoDate(e.target.value)}
-                  className="bg-white border-zinc-300 text-zinc-900 h-10 shadow-sm focus:border-blue-500 focus:ring-blue-500/20"
+                  onChange={(date) => setPoDate(date.toISOString().split("T")[0])}
+                  required
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">Expected Delivery</label>
-                <Input
-                  type="date"
-                  value={expectedDelivery}
-                  onChange={(e) => setExpectedDelivery(e.target.value)}
-                  className="bg-white border-zinc-300 text-zinc-900 h-10 shadow-sm focus:border-blue-500 focus:ring-blue-500/20"
+                <DualDatePicker
+                  label="Expected Delivery"
+                  value={expectedDelivery || undefined}
+                  onChange={(date) => setExpectedDelivery(date.toISOString().split("T")[0])}
                 />
               </div>
 

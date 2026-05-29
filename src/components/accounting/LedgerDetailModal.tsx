@@ -11,6 +11,8 @@ import { downloadLedgerPDF } from "@/lib/export/ledger-pdf";
 import { downloadLedgerExcel } from "@/lib/export/ledger-excel";
 import { PartyType, ChannelType } from "@/generated/prisma/client";
 import { toast } from "sonner";
+import { DualDatePicker } from "@/components/shared/DualDatePicker";
+import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
 import { Calendar, Download, FileSpreadsheet, Eye, RefreshCw } from "lucide-react";
 
 interface LedgerDetailModalProps {
@@ -201,22 +203,16 @@ export function LedgerDetailModal({ open, onOpenChange, partyId, partyType, part
           </div>
 
           <div className="flex items-center gap-2 w-full md:w-auto">
-            <div className="flex items-center gap-1 border rounded-lg px-2 bg-white dark:bg-zinc-950 dark:border-zinc-800 h-9">
-              <Calendar className="h-4 w-4 text-zinc-400" />
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="border-0 shadow-none text-xs p-0 focus-visible:ring-0 focus-visible:ring-offset-0 h-full w-28 bg-transparent"
-              />
-              <span className="text-zinc-400 text-xs px-1">to</span>
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="border-0 shadow-none text-xs p-0 focus-visible:ring-0 focus-visible:ring-offset-0 h-full w-28 bg-transparent"
-              />
-            </div>
+            <DualDatePicker
+              label="From"
+              value={dateFrom || undefined}
+              onChange={(date) => setDateFrom(date.toISOString().split("T")[0])}
+            />
+            <DualDatePicker
+              label="To"
+              value={dateTo || undefined}
+              onChange={(date) => setDateTo(date.toISOString().split("T")[0])}
+            />
             <Button size="sm" onClick={fetchLedger} disabled={isLoading} className="h-9 px-3">
               <RefreshCw className={`h-3 w-3 ${isLoading ? "animate-spin" : ""}`} />
             </Button>
@@ -266,7 +262,7 @@ export function LedgerDetailModal({ open, onOpenChange, partyId, partyType, part
                   const isDr = e.entryType === "DEBIT";
                   return (
                     <tr key={e.id || idx} className="border-b dark:border-zinc-800 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50">
-                      <td className="p-3 font-medium">{new Date(e.entryDate).toLocaleDateString("en-IN")}</td>
+                      <td className="p-3 font-medium"><DualDateDisplay date={e.entryDate} /></td>
                       <td className="p-3 font-mono font-bold text-blue-600 dark:text-blue-400">
                         {e.referenceType ? `${e.referenceType}-${e.referenceId?.slice(-4)}` : "-"}
                       </td>

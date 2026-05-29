@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { createProjectSchema, updateProjectSchema } from "@/modules/projects/types";
 import { createProject, updateProject } from "@/modules/projects/actions";
 import { toast } from "sonner";
+import { DualDatePicker } from "@/components/shared/DualDatePicker";
 
 interface CreateProjectModalProps {
   open: boolean;
@@ -158,12 +159,18 @@ export function CreateProjectModal({ open, onOpenChange, clients, project = null
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium block mb-1">Start Date</label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <DualDatePicker
+                label="Start Date"
+                value={startDate || undefined}
+                onChange={(date) => setStartDate(date.toISOString().split("T")[0])}
+              />
             </div>
             <div>
-              <label className="text-sm font-medium block mb-1">Target End Date</label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <DualDatePicker
+                label="Target End Date"
+                value={endDate || undefined}
+                onChange={(date) => setEndDate(date.toISOString().split("T")[0])}
+              />
             </div>
           </div>
 

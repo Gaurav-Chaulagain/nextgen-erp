@@ -8,6 +8,7 @@ import { AddExpenseModal } from "./AddExpenseModal";
 import { deleteExpense } from "@/modules/expenses/actions";
 import { formatDate, formatNPR } from "@/lib/utils";
 import { toast } from "sonner";
+import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
 import {
   Trash2,
   TrendingDown,
@@ -469,7 +470,7 @@ export function ExpensesPage({ expenses, stats, userId }: ExpensesPageProps) {
               {filteredExpenses.length ? (
                 filteredExpenses.map((e) => (
                   <tr key={e.id} className="hover:bg-zinc-50/70 transition-colors">
-                    <td className="px-4 py-3 text-zinc-600">{formatDate(e.expenseDate)}</td>
+                    <td className="px-4 py-3 text-zinc-600"><DualDateDisplay date={e.expenseDate} /></td>
                     <td className="px-4 py-3 font-mono font-bold text-rose-500">{e.expenseCode}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getCategoryColor(e.category)}`}>

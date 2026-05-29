@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { recordPurchasePayment } from "@/modules/purchase/actions";
 import { recordPurchasePaymentSchema } from "@/modules/purchase/types";
 import { toast } from "sonner";
+import { DualDatePicker } from "@/components/shared/DualDatePicker";
 
 interface RecordPaymentModalProps {
   open?: boolean;
@@ -144,8 +145,12 @@ export function RecordPaymentModal({
           </div>
 
           <div>
-            <label className="text-sm font-medium block mb-1">Payment Date *</label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <DualDatePicker
+              label="Payment Date"
+              value={date}
+              onChange={(date) => setDate(date.toISOString().split("T")[0])}
+              required
+            />
           </div>
 
           <div>

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { addCashBookEntryAction, getAccountingLookups } from "@/modules/accounting/actions";
 import { CashEntryType, PartyType, PaymentMode } from "@/generated/prisma/client";
 import { toast } from "sonner";
+import { DualDatePicker } from "@/components/shared/DualDatePicker";
 
 interface AddCashEntryModalProps {
   open: boolean;
@@ -126,8 +127,12 @@ export function AddCashEntryModal({ open, onOpenChange, onSuccess }: AddCashEntr
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-semibold block mb-1">Transaction Date *</label>
-              <Input type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
+              <DualDatePicker
+                label="Transaction Date"
+                value={entryDate}
+                onChange={(date) => setEntryDate(date.toISOString().split("T")[0])}
+                required
+              />
             </div>
             <div>
               <label className="text-xs font-semibold block mb-1">Amount (NPR) *</label>

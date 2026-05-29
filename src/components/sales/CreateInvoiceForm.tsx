@@ -11,6 +11,7 @@ import { createInvoice } from "@/modules/sales/actions";
 import { createInvoiceSchema } from "@/modules/sales/types";
 import type { CustomerOptionSchema, ProductOptionSchema, ProjectOptionSchema, WarehouseOptionSchema } from "@/modules/sales/types";
 import { toast } from "sonner";
+import { DualDatePicker } from '@/components/shared/DualDatePicker';
 
 type InvoiceType = "RETAIL" | "WHOLESALE" | "PROJECT";
 
@@ -238,12 +239,19 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
                       </div>
                     )}
                     <div>
-                      <label className="text-sm font-medium">Invoice Date</label>
-                      <Input type="date" value={invoiceDate} onChange={(event) => setInvoiceDate(event.target.value)} />
+                      <DualDatePicker
+                        label="Invoice Date"
+                        value={invoiceDate}
+                        onChange={(date) => setInvoiceDate(date.toISOString().split("T")[0])}
+                        required
+                      />
                     </div>
                     <div>
-                      <label className="text-sm font-medium">Due Date</label>
-                      <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+                      <DualDatePicker
+                        label="Due Date"
+                        value={dueDate || undefined}
+                        onChange={(date) => setDueDate(date.toISOString().split("T")[0])}
+                      />
                     </div>
                     <div>
                       <label className="text-sm font-medium">Payment Method</label>

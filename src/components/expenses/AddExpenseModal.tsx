@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { createExpense } from '@/modules/expenses/actions';
 import { toast } from 'sonner';
+import { DualDatePicker } from '@/components/shared/DualDatePicker';
 import { Plus, CreditCard, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -103,14 +104,12 @@ export function AddExpenseModal({ userId }: AddExpenseModalProps) {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="expenseDate" className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">Payment Date *</Label>
-              <Input
-                id="expenseDate"
-                type="date"
+            <div>
+              <DualDatePicker
+                label="Payment Date"
                 value={expenseDate}
-                onChange={(e) => setExpenseDate(e.target.value)}
-                className="bg-white border-zinc-300 text-zinc-900 h-10 focus:ring-rose-400/50 focus:border-rose-400"
+                onChange={(date) => setExpenseDate(date.toISOString().split("T")[0])}
+                required
               />
             </div>
           </div>

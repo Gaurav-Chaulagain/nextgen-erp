@@ -11,6 +11,7 @@ import { InvoicePreviewModal } from "./InvoicePreviewModal";
 import { RecordPaymentModal } from "./RecordPaymentModal";
 import { CreateReturnModal } from "./CreateReturnModal";
 import { Eye, RotateCcw } from "lucide-react";
+import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
 
 interface InvoiceTableProps {
   invoices: SalesInvoiceSchema[];
@@ -61,7 +62,7 @@ export function InvoiceTable({ invoices }: InvoiceTableProps) {
     {
       accessorKey: "invoiceDate",
       header: "Date",
-      cell: ({ row }) => <span className="text-sm font-medium">{row.original.invoiceDate.split("T")[0]}</span>,
+      cell: ({ row }) => <DualDateDisplay date={row.original.invoiceDate} />,
     },
     {
       accessorKey: "totalAmount",

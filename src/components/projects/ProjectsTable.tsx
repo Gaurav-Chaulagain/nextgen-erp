@@ -12,6 +12,7 @@ import { updateProjectStatus } from "@/modules/projects/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Hammer, Eye, Edit2, PlayCircle, PauseCircle, CheckCircle } from "lucide-react";
+import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
 
 interface ProjectsTableProps {
   projects: ProjectProfitabilitySchema[];
@@ -64,6 +65,22 @@ export function ProjectsTable({ projects, onIssueSupply, onEdit }: ProjectsTable
           <p className="text-xs text-zinc-500 font-medium">Client: {row.original.clientName}</p>
         </div>
       ),
+    },
+    {
+      accessorKey: "startDate",
+      header: "Start Date",
+      cell: ({ row }) => {
+        const date = (row.original as any).startDate;
+        return date ? <DualDateDisplay date={date} /> : "—";
+      },
+    },
+    {
+      accessorKey: "endDate",
+      header: "Deadline",
+      cell: ({ row }) => {
+        const date = (row.original as any).endDate;
+        return date ? <DualDateDisplay date={date} /> : "—";
+      },
     },
     {
       accessorKey: "contractAmount",

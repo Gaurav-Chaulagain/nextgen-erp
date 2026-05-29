@@ -5,6 +5,7 @@ import { signOut } from "next-auth/react";
 import type { Role } from "../../lib/constants";
 import { CURRENCY, ROLE_LABELS } from "../../lib/constants";
 import { formatDate } from "../../lib/utils";
+import { getTodayDual } from "../../lib/nepali-date";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +37,8 @@ export function Header({
 }: HeaderProps) {
   const [open, setOpen] = React.useState(false);
   const getFormattedDate = () => formatDate(new Date());
+  
+  const { bsFormatted, adDate } = getTodayDual();
 
   const totalNotifications = lowStockCount + pendingPaymentsCount;
 
@@ -66,9 +69,10 @@ export function Header({
       {/* Header Actions */}
       <div className="flex items-center gap-4">
         {/* Current Date */}
-        <span className="hidden md:block text-xs font-semibold text-zinc-500 tracking-tight dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 px-3 py-1.5 rounded-xl">
-          {getFormattedDate()}
-        </span>
+        <div className="hidden md:flex flex-col text-[11px] font-semibold text-zinc-500 tracking-tight dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 px-3 py-1 rounded-xl text-center leading-tight">
+          <span className="font-bold text-zinc-800 dark:text-zinc-200">{bsFormatted}</span>
+          <span className="text-[9px] text-zinc-400 dark:text-zinc-550">{adDate} AD</span>
+        </div>
 
         {/* NPR Currency Indicator */}
         <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 tracking-tight dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 px-3 py-1.5 rounded-xl">

@@ -14,6 +14,7 @@ import { SupplierLedgerModal } from "./SupplierLedgerModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatDate, formatNPR } from "@/lib/utils";
 import { Eye, CheckSquare, BookOpen, XCircle, ShoppingBag, DollarSign } from "lucide-react";
+import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
 
 interface PurchaseOrderTableProps {
   orders: PurchaseOrderSchema[];
@@ -76,20 +77,12 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
     {
       accessorKey: "orderDate",
       header: "Order Date",
-      cell: ({ row }) => (
-        <span className="text-sm text-zinc-600 font-medium">
-          {formatDate(row.original.orderDate)}
-        </span>
-      ),
+      cell: ({ row }) => <DualDateDisplay date={row.original.orderDate} />,
     },
     {
       accessorKey: "expectedDate",
       header: "Expected Delivery",
-      cell: ({ row }) => (
-        <span className="text-sm text-zinc-600 font-medium">
-          {row.original.expectedDate ? formatDate(row.original.expectedDate) : "—"}
-        </span>
-      ),
+      cell: ({ row }) => row.original.expectedDate ? <DualDateDisplay date={row.original.expectedDate} /> : "—",
     },
     {
       accessorKey: "totalAmount",
@@ -284,11 +277,11 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-0.5">Order Date</h4>
-                    <div className="text-sm font-semibold text-zinc-800">{formatDate(selectedPO.orderDate)}</div>
+                    <div className="text-sm font-semibold text-zinc-800"><DualDateDisplay date={selectedPO.orderDate} /></div>
                   </div>
                   <div>
                     <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-0.5">Expected Delivery</h4>
-                    <div className="text-sm font-semibold text-zinc-800">{selectedPO.expectedDate ? formatDate(selectedPO.expectedDate) : "—"}</div>
+                    <div className="text-sm font-semibold text-zinc-800">{selectedPO.expectedDate ? <DualDateDisplay date={selectedPO.expectedDate} /> : "—"}</div>
                   </div>
                 </div>
               </div>
