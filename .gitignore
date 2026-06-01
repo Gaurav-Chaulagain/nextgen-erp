@@ -64,6 +64,8 @@ DATA_ENTRY_GUIDE.md
 DATA_ENTRY_GUIDE.md
 *Prompt.md
 *WALKTHROUGH.md
+STAGE_WALKTHROUGH.md
 .env
 .env.local
 debug.log
+AGENTS.md
