@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
-import { Plus, ChevronRight, ChevronLeft, Save } from 'lucide-react';
+import { Plus, ChevronRight, ChevronLeft, Save, Loader2 } from 'lucide-react';
 
 export function AddProductModal() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<any>({
     name: '',
     categoryId: '',
@@ -126,8 +127,10 @@ export function AddProductModal() {
   }
 
   async function submit() {
+    if (submitting) return;
     if (!validateStep2()) return;
     try {
+      setSubmitting(true);
       const res = await fetch('/api/inventory/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -155,6 +158,8 @@ export function AddProductModal() {
     } catch (err) {
       console.error(err);
       alert('Error: ' + (err as any).message);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -456,9 +461,18 @@ export function AddProductModal() {
           ) : (
             <Button
               onClick={submit}
+              disabled={submitting}
               className="h-10 px-5 rounded-xl font-bold flex items-center gap-2 shadow-md bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
             >
-              <Save size={16} /> Save Product
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Saving...
+                </>
+              ) : (
+                <>
+                  <Save size={16} /> Save Product
+                </>
+              )}
             </Button>
           )}
         </DialogFooter>

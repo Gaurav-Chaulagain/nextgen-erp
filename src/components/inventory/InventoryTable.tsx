@@ -7,16 +7,40 @@ import type { InventoryItemSchema } from "@/modules/inventory/types";
 import { Button } from "../ui/button";
 import AdjustStockModal from "./AdjustStockModal";
 import EditProductModal from "./EditProductModal";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import PaginationControls from './InventoryTableControls';
+import { useRouter } from 'next/navigation';
+import { deleteInventoryProduct } from "@/modules/inventory/actions";
+import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 
 interface InventoryTableProps {
   items: InventoryItemSchema[];
 }
 
 export function InventoryTable({ items }: InventoryTableProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+
+  const handleDeleteProduct = (productId: string, productName: string) => {
+    if (!confirm(`Are you sure you want to delete "${productName}"? This will permanently erase this product record.`)) {
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const res = await deleteInventoryProduct(productId, "");
+        if (res.success) {
+          toast.success(`Product "${productName}" deleted successfully.`);
+          router.refresh();
+        }
+      } catch (err: any) {
+        toast.error(err.message || "Failed to delete product");
+      }
+    });
+  };
 
   const columns: ColumnDef<InventoryItemSchema, any>[] = [
     {
@@ -88,6 +112,16 @@ export function InventoryTable({ items }: InventoryTableProps) {
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setSelectedProductId(row.original.productId)} className="h-8 px-2.5 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 font-bold border border-amber-200">
             Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={isPending}
+            onClick={() => handleDeleteProduct(row.original.productId, row.original.name)}
+            className="h-8 px-2.5 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-bold border border-rose-200 flex items-center gap-1"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
           </Button>
         </div>
       ),

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useTransition } from "react";
 import { PageHeader } from "../layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { DataTable } from "../shared/DataTable";
@@ -57,6 +57,7 @@ const getModulesAccessText = (role: Role): string => {
 export function UsersPage({ initialUsers, sessionUser }: UsersPageProps) {
   const [usersList, setUsersList] = useState<UserItem[]>(initialUsers);
   const [activeTab, setActiveTab] = useState<"directory" | "audit">("directory");
+  const [isPending, startTransition] = useTransition();
   
   // Modals visibility states
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -71,16 +72,18 @@ export function UsersPage({ initialUsers, sessionUser }: UsersPageProps) {
   const isSuperAdmin = sessionUser.role === "SUPERADMIN";
   const isSuperAdminOrOwner = sessionUser.role === "SUPERADMIN" || sessionUser.role === "OWNER";
 
-  const handleDeleteUser = async (userId: string) => {
-    try {
-      const res = await deleteUserAction(userId);
-      if (res.success) {
-        toast.success("User deleted successfully.");
-        handleRefresh();
+  const handleDeleteUser = (userId: string) => {
+    startTransition(async () => {
+      try {
+        const res = await deleteUserAction(userId);
+        if (res.success) {
+          toast.success("User deleted successfully.");
+          handleRefresh();
+        }
+      } catch (err: any) {
+        toast.error(err.message || "Failed to delete user.");
       }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete user.");
-    }
+    });
   };
 
   // Summary Metrics

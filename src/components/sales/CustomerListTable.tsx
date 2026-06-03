@@ -175,28 +175,40 @@ export function CustomerListTable({ customers: initialCustomers }: CustomerListT
                 const bal = parseFloat(customer.balance || "0");
                 return (
                   <tr key={customer.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30">
-                    <td className="px-4 py-3 font-mono text-xs">{customer.code}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-zinc-950 dark:text-zinc-150">{customer.code}</td>
                     <td className="px-4 py-3 font-bold text-zinc-900 dark:text-zinc-100">
                       {customer.name}
                       {customer.address && (
-                        <span className="block text-[10px] font-normal text-zinc-400">{customer.address}</span>
+                        <span className="block text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">{customer.address}</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider rounded-md">
-                        {customer.customerType}
-                      </Badge>
+                      {customer.customerType === "WHOLESALE" && (
+                        <Badge variant="outline" className="text-[10px] uppercase font-extrabold tracking-wider rounded-md bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                          WHOLESALE
+                        </Badge>
+                      )}
+                      {customer.customerType === "RETAIL" && (
+                        <Badge variant="outline" className="text-[10px] uppercase font-extrabold tracking-wider rounded-md bg-blue-500/10 text-blue-600 border-blue-500/20">
+                          RETAIL
+                        </Badge>
+                      )}
+                      {customer.customerType === "PROJECT" && (
+                        <Badge variant="outline" className="text-[10px] uppercase font-extrabold tracking-wider rounded-md bg-purple-500/10 text-purple-600 border-purple-500/20">
+                          PROJECT
+                        </Badge>
+                      )}
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs">{customer.phone ?? "-"}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-teal-600 dark:text-teal-400">{customer.phone ?? "-"}</td>
                     <td className="px-4 py-3 text-right">
-                      <span className="font-bold font-mono text-zinc-900 dark:text-zinc-100">
+                      <span className="font-extrabold text-sm text-rose-600 dark:text-rose-400">
                         {parseFloat(customer.creditLimit).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span
-                        className={`font-bold font-mono ${
-                          bal > 0 ? "text-amber-600 dark:text-amber-500" : "text-zinc-400 dark:text-zinc-500 font-medium"
+                        className={`font-extrabold text-sm ${
+                          bal > 0 ? "text-emerald-600 dark:text-emerald-500" : "text-zinc-400 dark:text-zinc-500 font-medium"
                         }`}
                       >
                         {bal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

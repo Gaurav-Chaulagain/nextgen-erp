@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -25,6 +25,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
   const [isActive, setIsActive] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   // Password strength state
   const [passwordStrength, setPasswordStrength] = useState(0);
@@ -69,7 +70,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
     }
   }, [password]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim()) {
       toast.error("Please fill in all required fields.");
@@ -86,25 +87,27 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
       return;
     }
 
-    try {
-      setLoading(true);
-      await createUserAction({
-        name,
-        email,
-        phone: phone.replace(/[\s\-]/g, "") || undefined,
-        password: password || undefined,
-        role,
-        isActive,
-      });
+    setLoading(true);
+    startTransition(async () => {
+      try {
+        await createUserAction({
+          name,
+          email,
+          phone: phone.replace(/[\s\-]/g, "") || undefined,
+          password: password || undefined,
+          role,
+          isActive,
+        });
 
-      toast.success("Staff member account successfully created and welcome logs dispatched.");
-      onSuccess();
-      handleClose();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to create user account.");
-    } finally {
-      setLoading(false);
-    }
+        toast.success("Staff member account successfully created and welcome logs dispatched.");
+        onSuccess();
+        handleClose();
+      } catch (err: any) {
+        toast.error(err.message || "Failed to create user account.");
+      } finally {
+        setLoading(false);
+      }
+    });
   };
 
   const handleClose = () => {

@@ -9,6 +9,7 @@ import { SalesStats } from "@/components/sales/SalesStats";
 import { CustomerListTable } from "@/components/sales/CustomerListTable";
 import { AddCustomerModal } from "@/components/sales/AddCustomerModal";
 import { formatNPR } from "@/lib/utils";
+import { ReturnActions } from "@/components/sales/ReturnActions";
 import {
   getCustomers,
   getInvoiceFormLookups,
@@ -154,6 +155,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
                       Refund Method: <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300 font-mono text-[10px]">{r.refundMethod}</Badge>
                     </span>
                     <Badge className="bg-red-600 hover:bg-red-700 text-white dark:bg-red-500 text-[10px] font-bold px-2 py-0.5">{r.status}</Badge>
+                    <ReturnActions returnId={r.id} />
                   </div>
                 </div>
 

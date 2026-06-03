@@ -455,14 +455,14 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
   const db = await getDb();
   const createdBy = await resolveUserId(db, userId);
 
-  const invoice = await db.salesInvoice.findUnique({
-    where: { id: parsed.invoiceId },
-    include: { items: true },
-  });
-  if (!invoice) throw new Error("Invoice not found");
-  if (invoice.status === "CANCELLED") throw new Error("Cannot return items from a cancelled invoice");
-
   const result = await db.$transaction(async (tx) => {
+    const invoice = await tx.salesInvoice.findUnique({
+      where: { id: parsed.invoiceId },
+      include: { items: true },
+    });
+    if (!invoice) throw new Error("Invoice not found");
+    if (invoice.status === "CANCELLED") throw new Error("Cannot return items from a cancelled invoice");
+
     let returnValue = new Decimal(0);
     const returnNumber = await nextCode(tx, "salesReturn", "returnNumber", "SRN");
 
@@ -483,6 +483,14 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
 
     const returnItemsData = [];
 
+    // Get all sales return IDs for this invoice to calculate max returnable qty
+    const salesReturnIds = (
+      await tx.salesReturn.findMany({
+        where: { invoiceId: invoice.id },
+        select: { id: true },
+      })
+    ).map((r: any) => r.id);
+
     for (const returnItem of parsed.items) {
       const invoiceItem = invoice.items.find((item) => item.id === returnItem.invoiceItemId);
       if (!invoiceItem) throw new Error(`Invoice item ${returnItem.invoiceItemId} not found`);
@@ -492,7 +500,7 @@ export async function createSalesReturn(data: CreateReturnInput, userId?: string
         where: {
           type: "RETURN_IN",
           referenceType: "SALES_RETURN",
-          referenceId: invoice.id,
+          referenceId: { in: salesReturnIds },
           productId: invoiceItem.productId,
           warehouseId: invoiceItem.warehouseId,
         },
@@ -812,5 +820,38 @@ export async function fetchInvoiceByIdAction(id: string) {
   const invoice = await getInvoiceById(id);
   return serializeForClient(invoice);
 }
+
+export async function getSalesReturnDetails(returnId: string) {
+  const db = await getDb();
+  const salesReturn = await db.salesReturn.findUnique({
+    where: { id: returnId },
+    include: {
+      customer: true,
+      invoice: {
+        include: {
+          items: {
+            include: {
+              product: true,
+              warehouse: true,
+            },
+          },
+          salesReturns: {
+            include: {
+              items: true,
+            },
+          },
+        },
+      },
+      items: {
+        include: {
+          product: true,
+          warehouse: true,
+        },
+      },
+    },
+  });
+  return serializeForClient(salesReturn);
+}
+
 
 

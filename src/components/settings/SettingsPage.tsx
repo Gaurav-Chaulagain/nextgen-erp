@@ -484,6 +484,20 @@ export function SettingsPage({
               </div>
 
               <div className="space-y-1.5">
+                <Label htmlFor="biz-owner" className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Owner Name *
+                </Label>
+                <Input
+                  id="biz-owner"
+                  value={bizOwner}
+                  onChange={(e) => setBizOwner(e.target.value)}
+                  required
+                  disabled={loading || !isAdminOrOwner}
+                  className="h-10 rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1.5">
                 <Label htmlFor="biz-address" className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
                   Registered Address *
                 </Label>

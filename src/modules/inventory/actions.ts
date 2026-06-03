@@ -577,4 +577,67 @@ export async function updateInventoryProduct(productId: string, data: {
   return serializeForClient(result);
 }
 
+export async function deleteInventoryProduct(productId: string, userId: string) {
+  const db = await getDb();
+  const activeUserId = await resolveUserId(db, userId);
+
+  // Find if product exists and check relations to prevent breaking active historical ledgers
+  const product = await db.product.findUnique({
+    where: { id: productId },
+    include: {
+      purchaseItems: { take: 1 },
+      salesItems: { take: 1 },
+      purchaseReturnItems: { take: 1 },
+      salesReturnItems: { take: 1 },
+      stockTransactions: {
+        where: {
+          referenceType: { not: "INVENTORY_INIT" }
+        },
+        take: 1
+      }
+    }
+  });
+
+  if (!product) {
+    throw new Error("Product not found");
+  }
+
+  const hasRelations =
+    product.purchaseItems.length > 0 ||
+    product.salesItems.length > 0 ||
+    product.purchaseReturnItems.length > 0 ||
+    product.salesReturnItems.length > 0 ||
+    product.stockTransactions.length > 0;
+
+  if (hasRelations) {
+    throw new Error("Cannot delete. This product has active operational transactions (purchases, sales, or movements) linked to it. To preserve database audit trails, please deactivate the product instead.");
+  }
+
+  // Safe delete: delete associated variants, inventory stocks, initial transactions, and the product itself
+  await db.$transaction([
+    db.productVariant.deleteMany({ where: { productId } }),
+    db.stockTransaction.deleteMany({ where: { productId } }),
+    db.inventoryStock.deleteMany({ where: { productId } }),
+    db.product.delete({ where: { id: productId } }),
+  ]);
+
+  // Log audit trail
+  await db.auditLog.create({
+    data: {
+      userId: activeUserId,
+      action: "DELETE",
+      module: "INVENTORY",
+      recordId: productId,
+      oldValues: {
+        id: product.id,
+        code: product.code,
+        name: product.name,
+      },
+    },
+  });
+
+  revalidatePath("/inventory");
+  return { success: true };
+}
+
 

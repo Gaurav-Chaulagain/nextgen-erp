@@ -179,19 +179,19 @@ export function SupplierListTable({ suppliers: initialSuppliers, userId }: Suppl
                 const bal = parseFloat(supplier.balance || "0");
                 return (
                   <tr key={supplier.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30">
-                    <td className="px-4 py-3 font-mono text-xs">{supplier.code}</td>
+                    <td className="px-4 py-3 font-mono text-xs font-bold text-zinc-950 dark:text-zinc-150">{supplier.code}</td>
                     <td className="px-4 py-3 font-bold text-zinc-900 dark:text-zinc-100">
                       {supplier.name}
                       {supplier.contactPerson && (
-                        <span className="block text-[10px] font-normal text-zinc-400">Contact: {supplier.contactPerson}</span>
+                        <span className="block text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">Contact: {supplier.contactPerson}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs">{supplier.panNumber ?? "-"}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{supplier.phone ?? "-"}</td>
+                    <td className="px-4 py-3 font-mono text-xs font-semibold text-purple-600 dark:text-purple-400">{supplier.panNumber ?? "-"}</td>
+                    <td className="px-4 py-3 font-mono text-xs font-semibold text-teal-600 dark:text-teal-400">{supplier.phone ?? "-"}</td>
                     <td className="px-4 py-3 text-right">
                       <span
-                        className={`font-bold font-mono ${
-                          bal > 0 ? "text-amber-600 dark:text-amber-500" : "text-zinc-400 dark:text-zinc-500 font-medium"
+                        className={`font-extrabold font-mono ${
+                          bal > 0 ? "text-rose-600 dark:text-rose-500" : "text-zinc-400 dark:text-zinc-500 font-medium"
                         }`}
                       >
                         {bal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
