@@ -53,13 +53,9 @@ async function createPrismaClient(): Promise<PrismaClient> {
   });
   const adapter = new PrismaPg(pool);
   
-  // Generate the connection string with SSL parameters appended
-  const prismaConnectionString = appendSslMode(connectionString);
-
   const client = new PrismaClient({ 
     adapter,
-    datasourceUrl: prismaConnectionString,
-  } as any);
+  });
   
   if (process.env.NODE_ENV !== "production") {
     globalThis.prismaGlobal = client;
