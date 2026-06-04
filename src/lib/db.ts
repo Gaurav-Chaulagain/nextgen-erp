@@ -11,10 +11,14 @@ declare global {
 
 async function createPrismaClient(): Promise<PrismaClient> {
   const { PrismaClient } = await import("../generated/prisma/client");
+  const connectionString = process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL;
+  const isLocalhost = connectionString?.includes("localhost") || connectionString?.includes("127.0.0.1");
+
   const pool = new Pool({ 
-    connectionString: process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL,
+    connectionString,
     max: 5, // Limit connection pool size per instance to prevent exhausting Postgres in dev mode
     idleTimeoutMillis: 15000, // Automatically close idle connections quickly
+    ssl: isLocalhost ? false : { rejectUnauthorized: false },
   });
   const adapter = new PrismaPg(pool);
   const client = new PrismaClient({ adapter });
