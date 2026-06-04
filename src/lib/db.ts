@@ -40,10 +40,24 @@ declare global {
   var prismaPromiseGlobal: Promise<PrismaClient> | undefined;
 }
 
+function cleanConnectionString(url: string | undefined): string | undefined {
+  if (!url) return url;
+  try {
+    const u = new URL(url);
+    u.searchParams.delete("sslmode");
+    u.searchParams.delete("sslaccept");
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 async function createPrismaClient(): Promise<PrismaClient> {
   const { PrismaClient } = await import("../generated/prisma/client");
-  const connectionString = process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL;
-  const isLocalhost = connectionString?.includes("localhost") || connectionString?.includes("127.0.0.1");
+  const rawConnectionString = process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL;
+  const isLocalhost = rawConnectionString?.includes("localhost") || rawConnectionString?.includes("127.0.0.1");
+
+  const connectionString = cleanConnectionString(rawConnectionString);
 
   const pool = new Pool({ 
     connectionString,
