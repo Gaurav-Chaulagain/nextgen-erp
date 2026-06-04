@@ -52,7 +52,18 @@ async function createPrismaClient(): Promise<PrismaClient> {
     ssl: isLocalhost ? false : { rejectUnauthorized: false },
   });
   const adapter = new PrismaPg(pool);
-  const client = new PrismaClient({ adapter });
+  
+  // Generate the connection string with SSL parameters appended
+  const prismaConnectionString = appendSslMode(connectionString);
+
+  const client = new PrismaClient({ 
+    adapter,
+    datasources: {
+      db: {
+        url: prismaConnectionString,
+      },
+    },
+  } as any);
   
   if (process.env.NODE_ENV !== "production") {
     globalThis.prismaGlobal = client;
