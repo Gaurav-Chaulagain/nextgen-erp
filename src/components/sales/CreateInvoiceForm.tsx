@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { INVOICE_COLORS, VAT_RATE } from "@/lib/constants";
-import { formatNPR } from "@/lib/utils";
+import { formatAmountOnly } from "@/lib/utils";
 import { createInvoice } from "@/modules/sales/actions";
 import { createInvoiceSchema } from "@/modules/sales/types";
 import type { CustomerOptionSchema, ProductOptionSchema, ProjectOptionSchema, WarehouseOptionSchema } from "@/modules/sales/types";
@@ -42,7 +42,14 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [invoiceType, setInvoiceType] = useState<InvoiceType>("RETAIL");
-  const [customerId, setCustomerId] = useState(customers[0]?.id ?? "");
+  const [customerId, setCustomerId] = useState(() => {
+    const initialRetail = customers.find((c) => c.customerType === "RETAIL");
+    return initialRetail?.id ?? customers[0]?.id ?? "";
+  });
+
+  const filteredCustomers = useMemo(() => {
+    return customers.filter((c) => c.customerType === invoiceType);
+  }, [customers, invoiceType]);
   const [projectId, setProjectId] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split("T")[0]);
   const [dueDate, setDueDate] = useState("");
@@ -201,6 +208,8 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
                         type="button"
                         onClick={() => {
                           setInvoiceType(type);
+                          const typedCustomers = customers.filter((c) => c.customerType === type);
+                          setCustomerId(typedCustomers[0]?.id ?? "");
                           setItems((current) =>
                             current.map((item) => ({
                               ...item,
@@ -222,7 +231,7 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
                       <label className="text-sm font-medium">Customer</label>
                       <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} className="h-9 w-full rounded-lg border bg-background px-3 text-sm">
                         <option value="">Select customer</option>
-                        {customers.map((customer) => (
+                        {filteredCustomers.map((customer) => (
                           <option key={customer.id} value={customer.id}>{customer.name} ({customer.customerType})</option>
                         ))}
                       </select>
@@ -313,8 +322,8 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
                               <Input type="number" value={item.discountPercent} onChange={(event) => updateLine(item.id, { discountPercent: Number(event.target.value) })} />
                             </div>
                             <div>
-                              <label className="text-xs font-medium text-zinc-500">Line Total</label>
-                              <p className="h-9 pt-2 text-sm font-semibold">{formatNPR(Math.max(0, item.qty * item.unitPrice * (1 - item.discountPercent / 100)))}</p>
+                              <label className="text-xs font-medium text-zinc-500">Line Total (NPR)</label>
+                              <p className="h-9 pt-2 text-sm font-semibold">{formatAmountOnly(Math.max(0, item.qty * item.unitPrice * (1 - item.discountPercent / 100)))}</p>
                             </div>
                             <Button type="button" variant="outline" onClick={() => setItems((current) => current.filter((candidate) => candidate.id !== item.id))}>Remove</Button>
                           </div>
@@ -358,11 +367,11 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
               <div className="mt-4 space-y-2 text-sm">
                 <div className="flex justify-between"><span>Customer</span><span className="font-medium">{selectedCustomer?.name ?? "-"}</span></div>
                 <div className="flex justify-between"><span>Items</span><span>{items.length}</span></div>
-                <div className="flex justify-between"><span>Subtotal</span><span>{formatNPR(totals.subtotal)}</span></div>
-                <div className="flex justify-between"><span>Discount</span><span>{formatNPR(totals.discountAmount)}</span></div>
-                <div className="flex justify-between"><span>VAT</span><span>{formatNPR(totals.vatAmount)}</span></div>
-                <div className="flex justify-between border-t pt-2 text-base font-semibold"><span>Total</span><span>{formatNPR(totals.total)}</span></div>
-                <div className="flex justify-between text-amber-600"><span>Balance</span><span>{formatNPR(totals.balance)}</span></div>
+                <div className="flex justify-between"><span>Subtotal</span><span>{formatAmountOnly(totals.subtotal)}</span></div>
+                <div className="flex justify-between"><span>Discount</span><span>{formatAmountOnly(totals.discountAmount)}</span></div>
+                <div className="flex justify-between"><span>VAT</span><span>{formatAmountOnly(totals.vatAmount)}</span></div>
+                <div className="flex justify-between border-t pt-2 text-base font-semibold"><span>Total</span><span>{formatAmountOnly(totals.total)}</span></div>
+                <div className="flex justify-between text-amber-600"><span>Balance</span><span>{formatAmountOnly(totals.balance)}</span></div>
               </div>
             </aside>
           </div>

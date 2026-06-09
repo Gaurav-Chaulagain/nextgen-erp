@@ -130,7 +130,7 @@ export function EditUserModal({
 
     try {
       setLoading(true);
-      await updateUserCredentials(userToEdit.id, {
+      const res = await updateUserCredentials(userToEdit.id, {
         name,
         email,
         phone: phone.replace(/[\s\-]/g, "") || "",
@@ -140,9 +140,13 @@ export function EditUserModal({
         confirmPassword: hasPassword ? confirmPassword : "",
       });
 
-      toast.success("User credentials updated successfully.");
-      onSuccess();
-      onClose();
+      if (res.success) {
+        toast.success("User credentials updated successfully.");
+        onSuccess();
+        onClose();
+      } else {
+        toast.error(res.error || "Failed to update user credentials.");
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to update user credentials.");
     } finally {

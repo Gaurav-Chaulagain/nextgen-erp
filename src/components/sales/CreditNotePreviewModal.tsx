@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { formatNPR } from "@/lib/utils";
+import { formatAmountOnly } from "@/lib/utils";
 import { generateCreditNotePDF, type CreditNoteProps } from "@/lib/credit-note-pdf";
 
 interface CreditNotePreviewModalProps {
@@ -116,8 +116,8 @@ export function CreditNotePreviewModal({ open = false, onOpenChange, returnData 
                   <tr className="border-b bg-zinc-50 text-zinc-700">
                     <th className="px-3 py-2.5 text-left font-semibold">Product Description & Returns</th>
                     <th className="px-3 py-2.5 text-right font-semibold w-36">Qty</th>
-                    <th className="px-3 py-2.5 text-right font-semibold w-28">Unit Price</th>
-                    <th className="px-3 py-2.5 text-right font-semibold w-36">Total Price</th>
+                    <th className="px-3 py-2.5 text-right font-semibold w-28">Unit Price (NPR)</th>
+                    <th className="px-3 py-2.5 text-right font-semibold w-36">Total Price (NPR)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200">
@@ -191,25 +191,25 @@ export function CreditNotePreviewModal({ open = false, onOpenChange, returnData 
                         </td>
 
                         <td className="px-3 py-3 text-right font-mono text-zinc-900">
-                          {formatNPR(item.unitPrice)}
+                          {formatAmountOnly(item.unitPrice)}
                         </td>
 
                         <td className="px-3 py-3 text-right">
                           {retInfo ? (
                             <div className="flex flex-col font-mono text-xs gap-0.5">
                               <span className="text-zinc-400 line-through">
-                                {formatNPR(item.totalPrice)}
+                                {formatAmountOnly(item.totalPrice)}
                               </span>
                               <span className="text-rose-600 font-medium">
-                                -{formatNPR(retInfo.totalPrice)}
+                                -{formatAmountOnly(retInfo.totalPrice)}
                               </span>
                               <span className="font-bold text-zinc-900 border-t border-dashed border-zinc-200 pt-0.5 mt-0.5">
-                                {formatNPR(item.totalPrice - retInfo.totalPrice)}
+                                {formatAmountOnly(item.totalPrice - retInfo.totalPrice)}
                               </span>
                             </div>
                           ) : (
                             <span className="font-mono text-zinc-900">
-                              {formatNPR(item.totalPrice)}
+                              {formatAmountOnly(item.totalPrice)}
                             </span>
                           )}
                         </td>
@@ -232,34 +232,34 @@ export function CreditNotePreviewModal({ open = false, onOpenChange, returnData 
                   <div className="ml-auto mt-6 w-full max-w-sm space-y-2 text-sm border-t pt-4">
                     <div className="flex justify-between text-zinc-500">
                       <span>Original Subtotal</span>
-                      <span>{formatNPR(returnData.subtotal)}</span>
+                      <span>{formatAmountOnly(returnData.subtotal)}</span>
                     </div>
                     {returnData.discountAmount > 0 && (
                       <div className="flex justify-between text-zinc-500">
                         <span>Original Discount</span>
-                        <span>{formatNPR(returnData.discountAmount)}</span>
+                        <span>{formatAmountOnly(returnData.discountAmount)}</span>
                       </div>
                     )}
                     {returnData.vatAmount > 0 && (
                       <div className="flex justify-between text-zinc-500">
                         <span>Original VAT ({returnData.vatPercent}%)</span>
-                        <span>{formatNPR(returnData.vatAmount)}</span>
+                        <span>{formatAmountOnly(returnData.vatAmount)}</span>
                       </div>
                     )}
                     <div className="flex justify-between border-b pb-2 font-semibold text-zinc-800">
                       <span>Original Total</span>
-                      <span>{formatNPR(originalTotal)}</span>
+                      <span>{formatAmountOnly(originalTotal)}</span>
                     </div>
 
                     {totalReturned > 0 && (
                       <>
                         <div className="flex justify-between text-rose-600 font-semibold">
                           <span>Total Returned (incl. VAT)</span>
-                          <span>-{formatNPR(totalReturned)}</span>
+                          <span>-{formatAmountOnly(totalReturned)}</span>
                         </div>
                         <div className="flex justify-between border-t pt-2 text-base font-bold text-red-700 bg-red-50 p-2.5 rounded-xl border border-red-200 shadow-sm">
                           <span>Net Invoice Value</span>
-                          <span className="font-mono">{formatNPR(netTotal)}</span>
+                          <span className="font-mono">{formatAmountOnly(netTotal)}</span>
                         </div>
                       </>
                     )}
@@ -267,17 +267,17 @@ export function CreditNotePreviewModal({ open = false, onOpenChange, returnData 
                     {totalReturned === 0 && (
                       <div className="flex justify-between border-t pt-2 text-base font-bold text-red-700 bg-red-50 p-2.5 rounded-xl border border-red-200 shadow-sm">
                         <span>Total Amount</span>
-                        <span className="font-mono">{formatNPR(netTotal)}</span>
+                        <span className="font-mono">{formatAmountOnly(netTotal)}</span>
                       </div>
                     )}
 
                     <div className="flex justify-between text-xs text-zinc-500 px-2 pt-1">
                       <span>Amount Paid</span>
-                      <span>{formatNPR(returnData.paidAmount)}</span>
+                      <span>{formatAmountOnly(returnData.paidAmount)}</span>
                     </div>
                     <div className="flex justify-between text-sm font-bold text-orange-600 px-2">
                       <span>Balance Due</span>
-                      <span className="font-mono">{formatNPR(returnData.balanceAmount)}</span>
+                      <span className="font-mono">{formatAmountOnly(returnData.balanceAmount)}</span>
                     </div>
                   </div>
                 );

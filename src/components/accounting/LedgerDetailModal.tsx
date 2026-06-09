@@ -233,9 +233,9 @@ export function LedgerDetailModal({ open, onOpenChange, partyId, partyType, part
                 <th className="p-3 font-bold text-zinc-500">Date</th>
                 <th className="p-3 font-bold text-zinc-500">Ref Doc</th>
                 <th className="p-3 font-bold text-zinc-500">Description / Particulars</th>
-                <th className="p-3 font-bold text-zinc-500 text-right">Debit (Dr)</th>
-                <th className="p-3 font-bold text-zinc-500 text-right">Credit (Cr)</th>
-                <th className="p-3 font-bold text-zinc-500 text-right">Balance</th>
+                <th className="p-3 font-bold text-zinc-500 text-right">Debit (Dr, NPR)</th>
+                <th className="p-3 font-bold text-zinc-500 text-right">Credit (Cr, NPR)</th>
+                <th className="p-3 font-bold text-zinc-500 text-right">Balance (NPR)</th>
               </tr>
             </thead>
             <tbody>
@@ -247,7 +247,7 @@ export function LedgerDetailModal({ open, onOpenChange, partyId, partyType, part
                 <td className="p-3 text-right">-</td>
                 <td className="p-3 text-right">-</td>
                 <td className="p-3 text-right font-bold">
-                  <NPRAmount amount={Number(openingBalance)} />
+                  <NPRAmount amount={Number(openingBalance)} showCurrency={false} />
                 </td>
               </tr>
 
@@ -268,13 +268,13 @@ export function LedgerDetailModal({ open, onOpenChange, partyId, partyType, part
                       </td>
                       <td className="p-3 text-zinc-600 dark:text-zinc-300 font-semibold">{e.description || "-"}</td>
                       <td className="p-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
-                        {isDr ? <NPRAmount amount={Number(e.amount)} /> : "-"}
+                        {isDr ? <NPRAmount amount={Number(e.amount)} showCurrency={false} /> : "-"}
                       </td>
-                      <td className="p-3 text-right font-semibold text-rose-600 dark:text-rose-400">
-                        {!isDr ? <NPRAmount amount={Number(e.amount)} /> : "-"}
+                      <td className="p-3 text-right font-semibold text-rose-650 dark:text-rose-400">
+                        {!isDr ? <NPRAmount amount={Number(e.amount)} showCurrency={false} /> : "-"}
                       </td>
                       <td className="p-3 text-right font-bold text-zinc-800 dark:text-zinc-200">
-                        <NPRAmount amount={Number(e.runningBalance)} showSign={true} />
+                        <NPRAmount amount={Number(e.runningBalance)} showSign={true} showCurrency={false} />
                       </td>
                     </tr>
                   );

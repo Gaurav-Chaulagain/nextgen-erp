@@ -456,23 +456,23 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                   <div className="grid grid-cols-5 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">
                     <span>Account Code</span>
                     <span className="col-span-2">Account Name Particulars</span>
-                    <span className="text-right">Debit Balance (Dr)</span>
-                    <span className="text-right">Credit Balance (Cr)</span>
+                    <span className="text-right">Debit Balance (Dr) (NPR)</span>
+                    <span className="text-right">Credit Balance (Cr) (NPR)</span>
                   </div>
                   <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
                     {reportData.rows.map((r: any, idx: number) => (
                       <div key={idx} className="grid grid-cols-5 px-6 py-3.5 items-center">
                         <span className="text-xs font-bold text-zinc-400">{r.code}</span>
                         <span className="col-span-2 text-zinc-800 dark:text-zinc-200">{r.name} <span className="text-[10px] text-zinc-400">({r.type})</span></span>
-                        <span className="text-right text-zinc-800 dark:text-zinc-200">{r.debit !== "0" ? <NPRAmount amount={Number(r.debit)} /> : "-"}</span>
-                        <span className="text-right text-zinc-800 dark:text-zinc-200">{r.credit !== "0" ? <NPRAmount amount={Number(r.credit)} /> : "-"}</span>
+                        <span className="text-right text-zinc-800 dark:text-zinc-200">{r.debit !== "0" ? <NPRAmount amount={Number(r.debit)} showCurrency={false} /> : "-"}</span>
+                        <span className="text-right text-zinc-800 dark:text-zinc-200">{r.credit !== "0" ? <NPRAmount amount={Number(r.credit)} showCurrency={false} /> : "-"}</span>
                       </div>
                     ))}
                     <div className="grid grid-cols-5 px-6 py-5 items-center bg-zinc-50/50 dark:bg-zinc-900/30 font-extrabold border-t border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 uppercase tracking-wider text-xs">
                       <span>-</span>
                       <span className="col-span-2">TOTAL COMPREHENSIVE BALANCES</span>
-                      <span className="text-right"><NPRAmount amount={Number(reportData.totals.debit)} /></span>
-                      <span className="text-right"><NPRAmount amount={Number(reportData.totals.credit)} /></span>
+                      <span className="text-right"><NPRAmount amount={Number(reportData.totals.debit)} showCurrency={false} /></span>
+                      <span className="text-right"><NPRAmount amount={Number(reportData.totals.credit)} showCurrency={false} /></span>
                     </div>
                   </div>
                 </div>
@@ -496,7 +496,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                     <span>Date</span>
                     <span>Invoice Number</span>
                     <span>Customer Name</span>
-                    <span className="text-right">Taxable Sales Amount</span>
+                    <span className="text-right">Taxable Sales Amount (NPR)</span>
                     <span className="text-right">Action</span>
                   </div>
                   <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60 max-h-[400px] overflow-y-auto">
@@ -505,7 +505,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                         <span className="text-zinc-800 dark:text-zinc-200">{r.date}</span>
                         <span className="font-mono text-zinc-800 dark:text-zinc-200">{r.invoiceNumber} <span className="text-[10px] text-zinc-400 font-bold font-sans uppercase">({r.channel})</span></span>
                         <span className="text-zinc-800 dark:text-zinc-200 truncate">{r.customerName}</span>
-                        <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={r.amount} /></span>
+                        <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={r.amount} showCurrency={false} /></span>
                         <div className="text-right">
                           <button
                             onClick={() => handleViewInvoice(r.id)}
@@ -525,7 +525,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                     <span>RUNNING BALANCE TOTAL</span>
                     <span>-</span>
                     <span>{reportData.length} Invoices</span>
-                    <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={reportData.reduce((acc: number, curr: any) => acc + curr.amount, 0)} /></span>
+                    <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={reportData.reduce((acc: number, curr: any) => acc + curr.amount, 0)} showCurrency={false} /></span>
                     <span>-</span>
                   </div>
                 </div>
@@ -549,8 +549,8 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                     <span>Code</span>
                     <span className="col-span-2">Product Description Name</span>
                     <span className="text-right">Qty Sold</span>
-                    <span className="text-right">Sales Revenue</span>
-                    <span className="text-right">Direct Net profit</span>
+                    <span className="text-right">Sales Revenue (NPR)</span>
+                    <span className="text-right">Direct Net Profit (NPR)</span>
                   </div>
                   <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
                     {reportData.map((r: any, idx: number) => (
@@ -558,8 +558,8 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                         <span className="text-xs font-bold text-zinc-400">{r.code}</span>
                         <span className="col-span-2 text-zinc-800 dark:text-zinc-200">{r.name}</span>
                         <span className="text-right text-zinc-800 dark:text-zinc-200">{r.quantity}</span>
-                        <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={r.revenue} /></span>
-                        <span className="text-right text-emerald-600 dark:text-emerald-400 font-bold"><NPRAmount amount={r.profit} /></span>
+                        <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={r.revenue} showCurrency={false} /></span>
+                        <span className="text-right text-emerald-600 dark:text-emerald-400 font-bold"><NPRAmount amount={r.profit} showCurrency={false} /></span>
                       </div>
                     ))}
                     {reportData.length === 0 && (
@@ -588,10 +588,10 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                   <div className="grid grid-cols-8 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">
                     <span>PRJ Code</span>
                     <span className="col-span-2">Project contract Name</span>
-                    <span className="text-right">Contract Amt</span>
-                    <span className="text-right">Total Billed</span>
-                    <span className="text-right">Material Cost</span>
-                    <span className="text-right">Gross Profit</span>
+                    <span className="text-right">Contract Amt (NPR)</span>
+                    <span className="text-right">Total Billed (NPR)</span>
+                    <span className="text-right">Material Cost (NPR)</span>
+                    <span className="text-right">Gross Profit (NPR)</span>
                     <span className="text-right">Margin %</span>
                   </div>
                   <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
@@ -605,10 +605,10 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                             <span className="text-zinc-800 dark:text-zinc-200 block truncate">{r.name}</span>
                             <span className="text-[10px] text-zinc-400 font-medium block">Client: {r.clientName}</span>
                           </div>
-                          <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={r.contractAmount} /></span>
-                          <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={r.totalBilled} /></span>
-                          <span className="text-right text-rose-600 dark:text-rose-400"><NPRAmount amount={r.materialCost} /></span>
-                          <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={r.profit} /></span>
+                          <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={r.contractAmount} showCurrency={false} /></span>
+                          <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={r.totalBilled} showCurrency={false} /></span>
+                          <span className="text-right text-rose-600 dark:text-rose-400"><NPRAmount amount={r.materialCost} showCurrency={false} /></span>
+                          <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={r.profit} showCurrency={false} /></span>
                           <span className={`text-right font-extrabold ${isHigh ? "text-emerald-600 dark:text-emerald-400" : isLow ? "text-rose-600 dark:text-rose-400" : "text-amber-500"}`}>
                             {r.margin.toFixed(1)}%
                           </span>
@@ -636,7 +636,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                     <span>Date</span>
                     <span>PO Number</span>
                     <span>Vendor Name</span>
-                    <span className="text-right">Purchase Amount</span>
+                    <span className="text-right">Purchase Amount (NPR)</span>
                     <span className="text-right">Action</span>
                   </div>
                   <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60 max-h-[400px] overflow-y-auto">
@@ -645,7 +645,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                         <span className="text-zinc-800 dark:text-zinc-200">{r.date}</span>
                         <span className="font-mono text-zinc-800 dark:text-zinc-200">{r.poNumber}</span>
                         <span className="text-zinc-800 dark:text-zinc-200 truncate">{r.vendorName}</span>
-                        <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={r.amount} /></span>
+                        <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={r.amount} showCurrency={false} /></span>
                         <div className="text-right">
                           <button
                             onClick={() => handleViewPO(r.id)}
@@ -665,7 +665,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                     <span>RUNNING BALANCE TOTAL</span>
                     <span>-</span>
                     <span>{reportData.length} Purchase Orders</span>
-                    <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={reportData.reduce((acc: number, curr: any) => acc + curr.amount, 0)} /></span>
+                    <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={reportData.reduce((acc: number, curr: any) => acc + curr.amount, 0)} showCurrency={false} /></span>
                     <span>-</span>
                   </div>
                 </div>
@@ -733,8 +733,8 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                         <th className="px-5 py-3">Product Name</th>
                         <th className="px-5 py-3 text-right">Ordered Qty</th>
                         <th className="px-5 py-3 text-right">Received Qty</th>
-                        <th className="px-5 py-3 text-right">Unit Price</th>
-                        <th className="px-5 py-3 text-right">Total</th>
+                        <th className="px-5 py-3 text-right">Unit Price (NPR)</th>
+                        <th className="px-5 py-3 text-right">Total (NPR)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-200 dark:divide-zinc-850 text-zinc-800 dark:text-zinc-300 font-medium">
@@ -744,8 +744,8 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                           <td className="px-5 py-3 text-zinc-900 dark:text-zinc-200">{item.productName}</td>
                           <td className="px-5 py-3 text-right">{item.orderedQty} <span className="text-xs text-zinc-500 font-sans">{item.productUnit}</span></td>
                           <td className="px-5 py-3 text-right text-emerald-600 dark:text-emerald-400">{item.receivedQty} <span className="text-xs text-zinc-500 font-sans">{item.productUnit}</span></td>
-                          <td className="px-5 py-3 text-right"><NPRAmount amount={Number(item.unitPrice)} /></td>
-                          <td className="px-5 py-3 text-right text-zinc-900 dark:text-zinc-200"><NPRAmount amount={Number(item.totalPrice)} /></td>
+                          <td className="px-5 py-3 text-right"><NPRAmount amount={Number(item.unitPrice)} showCurrency={false} /></td>
+                          <td className="px-5 py-3 text-right text-zinc-900 dark:text-zinc-200"><NPRAmount amount={Number(item.totalPrice)} showCurrency={false} /></td>
                         </tr>
                       ))}
                     </tbody>
@@ -764,20 +764,20 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                           <th className="px-5 py-3">Payment Date</th>
                           <th className="px-5 py-3">Method</th>
                           <th className="px-5 py-3">Notes / Ref</th>
-                          <th className="px-5 py-3 text-right">Amount Paid</th>
+                          <th className="px-5 py-3 text-right">Amount Paid (NPR)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-200 dark:divide-zinc-850 text-zinc-800 dark:text-zinc-300 font-medium">
                         {selectedPO.payments.map((p: any, idx: number) => (
                           <tr key={idx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30">
-                            <td className="px-5 py-3 text-zinc-600 dark:text-zinc-400">{formatDate(p.paymentDate)}</td>
+                            <td className="px-5 py-3 text-zinc-650 dark:text-zinc-400">{formatDate(p.paymentDate)}</td>
                             <td className="px-5 py-3">
                               <Badge variant="outline" className="border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-mono text-[10px] shadow-none">
                                 {p.paymentMethod}
                               </Badge>
                             </td>
                             <td className="px-5 py-3 text-zinc-650 dark:text-zinc-400 text-xs italic">{p.notes || "No notes"}</td>
-                            <td className="px-5 py-3 text-right text-zinc-900 dark:text-zinc-200 font-bold"><NPRAmount amount={Number(p.amount)} /></td>
+                            <td className="px-5 py-3 text-right text-zinc-900 dark:text-zinc-200 font-bold"><NPRAmount amount={Number(p.amount)} showCurrency={false} /></td>
                           </tr>
                         ))}
                       </tbody>
@@ -813,7 +813,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                   <div className="grid grid-cols-4 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 px-6 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">
                     <span>Vendor Code</span>
                     <span className="col-span-2">Vendor / Supplier Particulars</span>
-                    <span className="text-right">Outstanding Balance</span>
+                    <span className="text-right">Outstanding Balance (NPR)</span>
                   </div>
                   <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
                     {reportData.map((r: any, idx: number) => (
@@ -822,7 +822,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                         <span className="col-span-2 text-zinc-800 dark:text-zinc-200">
                           {r.name} <span className="text-[10px] text-zinc-400 font-medium">(PAN: {r.pan})</span>
                         </span>
-                        <span className="text-right text-rose-600 font-bold"><NPRAmount amount={r.balance} /></span>
+                        <span className="text-right text-rose-600 font-bold"><NPRAmount amount={r.balance} showCurrency={false} /></span>
                       </div>
                     ))}
                     {reportData.length === 0 && (
@@ -831,7 +831,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                     <div className="grid grid-cols-4 px-6 py-5 items-center bg-zinc-50/50 dark:bg-zinc-900/30 font-extrabold border-t border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 uppercase tracking-wider text-xs">
                       <span>-</span>
                       <span className="col-span-2">TOTAL OUTSTANDING AP</span>
-                      <span className="text-right text-rose-600"><NPRAmount amount={reportData.reduce((acc: number, curr: any) => acc + curr.balance, 0)} /></span>
+                      <span className="text-right text-rose-600"><NPRAmount amount={reportData.reduce((acc: number, curr: any) => acc + curr.balance, 0)} showCurrency={false} /></span>
                     </div>
                   </div>
                 </div>

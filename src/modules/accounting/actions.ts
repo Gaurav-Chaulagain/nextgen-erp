@@ -35,8 +35,14 @@ import {
   getCashFlowData,
   getPurchaseSummary,
   getVendorOutstanding,
+  getTradingAccountDataForDates,
+  getProfitLossDataForDates,
+  getCashFlowDataForDates,
+  getProjectProfitabilityForDates,
+  getVendorOutstandingAsOf,
 } from "./reports";
 import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/auth/session";
 
 // 1. PARTY LOOKUPS FOR CASHBOOK ENTRIES
 export async function getAccountingLookups() {
@@ -221,5 +227,49 @@ export async function fetchPurchaseSummaryAction(dateFrom: string, dateTo: strin
 
 export async function fetchVendorOutstandingAction() {
   return getVendorOutstanding();
+}
+
+export async function fetchFiscalYearReportDataAction(fiscalYearId: string) {
+  const user = await getCurrentUser();
+  if (!user || (user.role !== "SUPERADMIN" && user.role !== "OWNER")) {
+    throw new Error("Access Denied. Only Superadmins and Owners can download fiscal year binders.");
+  }
+
+  const db = await getDb();
+  const fy = await db.fiscalYear.findUnique({
+    where: { id: fiscalYearId }
+  });
+
+  if (!fy) {
+    throw new Error("Fiscal year period not found.");
+  }
+
+  const startDate = new Date(fy.startDate);
+  const endDate = new Date(fy.endDate);
+
+  const [trading, pl, balanceSheet, cashFlow, projects, topSelling, vendorOutstanding] = await Promise.all([
+    getTradingAccountDataForDates(startDate, endDate),
+    getProfitLossDataForDates(startDate, endDate),
+    getBalanceSheetData(endDate),
+    getCashFlowDataForDates(startDate, endDate),
+    getProjectProfitabilityForDates(startDate, endDate),
+    getItemWiseSales(startDate, endDate),
+    getVendorOutstandingAsOf(endDate)
+  ]);
+
+  return {
+    fiscalYear: {
+      name: fy.name,
+      startDate: fy.startDate.toISOString(),
+      endDate: fy.endDate.toISOString()
+    },
+    trading,
+    pl,
+    balanceSheet,
+    cashFlow,
+    projects,
+    topSelling,
+    vendorOutstanding
+  };
 }
 

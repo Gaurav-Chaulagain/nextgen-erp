@@ -151,24 +151,24 @@ export function CashBookPage() {
     },
     {
       accessorKey: "amount",
-      header: "Amount",
+      header: "Amount (NPR)",
       cell: ({ row }) => {
         const amt = parseFloat(row.getValue("amount"));
         const isInflow = row.original.type === "RECEIVED";
         return (
           <span className={`font-bold ${isInflow ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
             {isInflow ? "+" : "-"}
-            <NPRAmount amount={amt} />
+            <NPRAmount amount={amt} showCurrency={false} />
           </span>
         );
       },
     },
     {
       accessorKey: "runningBalance",
-      header: "Running Balance",
+      header: "Running Balance (NPR)",
       cell: ({ row }) => (
         <span className="font-bold text-zinc-900 dark:text-zinc-50">
-          <NPRAmount amount={Number(row.getValue("runningBalance"))} />
+          <NPRAmount amount={Number(row.getValue("runningBalance"))} showCurrency={false} />
         </span>
       ),
     },

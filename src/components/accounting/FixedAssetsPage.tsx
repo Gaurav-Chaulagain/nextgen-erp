@@ -206,7 +206,7 @@ export function FixedAssetsPage() {
       header: "Purchase Cost (NPR)",
       cell: ({ row }) => (
         <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-          <NPRAmount amount={Number(row.getValue("purchasePrice"))} />
+          <NPRAmount amount={Number(row.getValue("purchasePrice"))} showCurrency={false} />
         </span>
       ),
     },
@@ -224,10 +224,10 @@ export function FixedAssetsPage() {
     },
     {
       accessorKey: "accumulatedDepreciation",
-      header: "Accumulated Dep.",
+      header: "Accumulated Dep. (NPR)",
       cell: ({ row }) => (
         <span className="font-semibold text-rose-600 dark:text-rose-400">
-          <NPRAmount amount={Number(row.getValue("accumulatedDepreciation"))} />
+          <NPRAmount amount={Number(row.getValue("accumulatedDepreciation"))} showCurrency={false} />
         </span>
       ),
     },
@@ -236,7 +236,7 @@ export function FixedAssetsPage() {
       header: "Net Book Value (NPR)",
       cell: ({ row }) => (
         <span className="font-bold text-emerald-600 dark:text-emerald-400">
-          <NPRAmount amount={Number(row.getValue("currentValue"))} />
+          <NPRAmount amount={Number(row.getValue("currentValue"))} showCurrency={false} />
         </span>
       ),
     },

@@ -19,133 +19,161 @@ interface CreateCashEntryData {
 
 // 1. GET CASHBOOK ENTRIES WITH CHRONOLOGICAL RUNNING BALANCE
 export async function getCashBookEntries(dateFrom?: string | Date, dateTo?: string | Date) {
-  const db = await getDb();
-  
-  const filterFrom = dateFrom ? new Date(dateFrom) : undefined;
-  const filterTo = dateTo ? new Date(dateTo) : undefined;
+  try {
+    const db = await getDb();
+    
+    const filterFrom = dateFrom ? new Date(dateFrom) : undefined;
+    const filterTo = dateTo ? new Date(dateTo) : undefined;
 
-  // A. Calculate opening cash balance prior to dateFrom
-  let openingBalance = new Decimal(0);
-  if (filterFrom) {
-    const sumIn = await db.cashBookEntry.aggregate({
-      where: { entryDate: { lt: filterFrom }, type: "RECEIVED" },
-      _sum: { amount: true },
-    });
-    const sumOut = await db.cashBookEntry.aggregate({
-      where: { entryDate: { lt: filterFrom }, type: "PAID" },
-      _sum: { amount: true },
-    });
-    openingBalance = new Decimal(sumIn._sum.amount || 0).minus(sumOut._sum.amount || 0);
-  }
-
-  // B. Query matching cash book rows
-  const where: any = {};
-  if (filterFrom || filterTo) {
-    where.entryDate = {
-      ...(filterFrom ? { gte: filterFrom } : {}),
-      ...(filterTo ? { lte: filterTo } : {}),
-    };
-  }
-
-  const entries = await db.cashBookEntry.findMany({
-    where,
-    orderBy: [
-      { entryDate: "asc" },
-      { createdAt: "asc" }
-    ],
-    include: { creator: { select: { name: true } } },
-  });
-
-  // C. Map running balance sequentially
-  let currentRunning = openingBalance;
-  const results = entries.map((entry) => {
-    const amount = new Decimal(entry.amount);
-    if (entry.type === "RECEIVED") {
-      currentRunning = currentRunning.plus(amount);
-    } else {
-      currentRunning = currentRunning.minus(amount);
+    // A. Calculate opening cash balance prior to dateFrom
+    let openingBalance = new Decimal(0);
+    if (filterFrom) {
+      const sumIn = await db.cashBookEntry.aggregate({
+        where: { entryDate: { lt: filterFrom }, type: "RECEIVED" },
+        _sum: { amount: true },
+      });
+      const sumOut = await db.cashBookEntry.aggregate({
+        where: { entryDate: { lt: filterFrom }, type: "PAID" },
+        _sum: { amount: true },
+      });
+      openingBalance = new Decimal(sumIn._sum.amount || 0).minus(sumOut._sum.amount || 0);
     }
 
-    return {
-      ...entry,
-      amount: entry.amount.toString(),
-      runningBalance: currentRunning.toString(),
-    };
-  });
+    // B. Query matching cash book rows
+    const where: any = {};
+    if (filterFrom || filterTo) {
+      where.entryDate = {
+        ...(filterFrom ? { gte: filterFrom } : {}),
+        ...(filterTo ? { lte: filterTo } : {}),
+      };
+    }
 
-  return {
-    openingBalance: openingBalance.toString(),
-    closingBalance: currentRunning.toString(),
-    entries: results,
-  };
+    const entries = await db.cashBookEntry.findMany({
+      where,
+      orderBy: [
+        { entryDate: "asc" },
+        { createdAt: "asc" }
+      ],
+      include: { creator: { select: { name: true } } },
+    });
+
+    // C. Map running balance sequentially
+    let currentRunning = openingBalance;
+    const results = entries.map((entry) => {
+      const amount = new Decimal(entry.amount);
+      if (entry.type === "RECEIVED") {
+        currentRunning = currentRunning.plus(amount);
+      } else {
+        currentRunning = currentRunning.minus(amount);
+      }
+
+      return {
+        ...entry,
+        amount: entry.amount.toString(),
+        runningBalance: currentRunning.toString(),
+      };
+    });
+
+    return {
+      openingBalance: openingBalance.toString(),
+      closingBalance: currentRunning.toString(),
+      entries: results,
+    };
+  } catch (error) {
+    console.error("Database connection error in getCashBookEntries:", error);
+    return {
+      openingBalance: "0.00",
+      closingBalance: "0.00",
+      entries: [],
+      error: "Database connection failed. Please check your network or configuration."
+    };
+  }
 }
 
 // 2. GET CASHBOOK SUMMARY FOR A SPECIFIC DATE (Opening, Received, Paid, Closing)
 export async function getCashBookSummary(date: Date | string) {
-  const db = await getDb();
-  const targetDate = new Date(date);
-  
-  const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0);
-  const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
+  try {
+    const db = await getDb();
+    const targetDate = new Date(date);
+    
+    const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
 
-  // A. Compute opening balance (all history before start of day)
-  const sumInBefore = await db.cashBookEntry.aggregate({
-    where: { entryDate: { lt: startOfDay }, type: "RECEIVED" },
-    _sum: { amount: true },
-  });
-  const sumOutBefore = await db.cashBookEntry.aggregate({
-    where: { entryDate: { lt: startOfDay }, type: "PAID" },
-    _sum: { amount: true },
-  });
-  const openingBalance = new Decimal(sumInBefore._sum.amount || 0).minus(sumOutBefore._sum.amount || 0);
-
-  // B. Compute received today
-  const sumInToday = await db.cashBookEntry.aggregate({
-    where: {
-      entryDate: { gte: startOfDay, lte: endOfDay },
-      type: "RECEIVED"
-    },
-    _sum: { amount: true },
-  });
-  const receivedToday = new Decimal(sumInToday._sum.amount || 0);
-
-  // C. Compute paid today
-  const sumOutToday = await db.cashBookEntry.aggregate({
-    where: {
-      entryDate: { gte: startOfDay, lte: endOfDay },
-      type: "PAID"
-    },
-    _sum: { amount: true },
-  });
-  const paidToday = new Decimal(sumOutToday._sum.amount || 0);
-
-  // D. Compute closing
-  const closingBalance = openingBalance.plus(receivedToday).minus(paidToday);
-
-  // E. Compute breakdown by payment methods today
-  const methods = ["CASH", "BANK", "CHEQUE", "ESEWA", "KHALTI"] as PaymentMode[];
-  const methodSummaries: Record<string, string> = {};
-
-  for (const m of methods) {
-    const sumInM = await db.cashBookEntry.aggregate({
-      where: { entryDate: { lt: endOfDay }, paymentMethod: m, type: "RECEIVED" },
+    // A. Compute opening balance (all history before start of day)
+    const sumInBefore = await db.cashBookEntry.aggregate({
+      where: { entryDate: { lt: startOfDay }, type: "RECEIVED" },
       _sum: { amount: true },
     });
-    const sumOutM = await db.cashBookEntry.aggregate({
-      where: { entryDate: { lt: endOfDay }, paymentMethod: m, type: "PAID" },
+    const sumOutBefore = await db.cashBookEntry.aggregate({
+      where: { entryDate: { lt: startOfDay }, type: "PAID" },
       _sum: { amount: true },
     });
-    const mBal = new Decimal(sumInM._sum.amount || 0).minus(sumOutM._sum.amount || 0);
-    methodSummaries[m] = mBal.toString();
+    const openingBalance = new Decimal(sumInBefore._sum.amount || 0).minus(sumOutBefore._sum.amount || 0);
+
+    // B. Compute received today
+    const sumInToday = await db.cashBookEntry.aggregate({
+      where: {
+        entryDate: { gte: startOfDay, lte: endOfDay },
+        type: "RECEIVED"
+      },
+      _sum: { amount: true },
+    });
+    const receivedToday = new Decimal(sumInToday._sum.amount || 0);
+
+    // C. Compute paid today
+    const sumOutToday = await db.cashBookEntry.aggregate({
+      where: {
+        entryDate: { gte: startOfDay, lte: endOfDay },
+        type: "PAID"
+      },
+      _sum: { amount: true },
+    });
+    const paidToday = new Decimal(sumOutToday._sum.amount || 0);
+
+    // D. Compute closing
+    const closingBalance = openingBalance.plus(receivedToday).minus(paidToday);
+
+    // E. Compute breakdown by payment methods today
+    const methods = ["CASH", "BANK", "CHEQUE", "ESEWA", "KHALTI"] as PaymentMode[];
+    const methodSummaries: Record<string, string> = {};
+
+    for (const m of methods) {
+      const sumInM = await db.cashBookEntry.aggregate({
+        where: { entryDate: { lt: endOfDay }, paymentMethod: m, type: "RECEIVED" },
+        _sum: { amount: true },
+      });
+      const sumOutM = await db.cashBookEntry.aggregate({
+        where: { entryDate: { lt: endOfDay }, paymentMethod: m, type: "PAID" },
+        _sum: { amount: true },
+      });
+      const mBal = new Decimal(sumInM._sum.amount || 0).minus(sumOutM._sum.amount || 0);
+      methodSummaries[m] = mBal.toString();
+    }
+
+    return {
+      openingBalance: openingBalance.toString(),
+      receivedToday: receivedToday.toString(),
+      paidToday: paidToday.toString(),
+      closingBalance: closingBalance.toString(),
+      methodBalances: methodSummaries,
+    };
+  } catch (error) {
+    console.error("Database connection error in getCashBookSummary:", error);
+    return {
+      openingBalance: "0.00",
+      receivedToday: "0.00",
+      paidToday: "0.00",
+      closingBalance: "0.00",
+      methodBalances: {
+        CASH: "0.00",
+        BANK: "0.00",
+        CHEQUE: "0.00",
+        ESEWA: "0.00",
+        KHALTI: "0.00",
+      },
+      error: "Database connection failed. Please check your network or configuration."
+    };
   }
-
-  return {
-    openingBalance: openingBalance.toString(),
-    receivedToday: receivedToday.toString(),
-    paidToday: paidToday.toString(),
-    closingBalance: closingBalance.toString(),
-    methodBalances: methodSummaries,
-  };
 }
 
 // 3. ADD MANUAL CASH BOOK ENTRY WITH ATOMIC DOUBLE-ENTRY MATCHING

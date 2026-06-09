@@ -865,4 +865,380 @@ export const getVendorOutstanding = cache(async () => {
   return payables.sort((a, b) => b.balance - a.balance);
 });
 
+// ============================================================================
+// FISCAL YEAR DATE RANGE SPECIFIC REPORT HELPERS
+// ============================================================================
+
+export const getTradingAccountDataForDates = cache(async (startDate: Date, endDate: Date) => {
+  const db = await getDb();
+  
+  // A. Total sales taxable amount (Revenue)
+  const salesAgg = await db.salesInvoice.findMany({
+    where: {
+      invoiceDate: { gte: startDate, lte: endDate },
+      status: { not: "CANCELLED" }
+    },
+    select: { subtotal: true, discountAmount: true }
+  });
+
+  let sales = new Decimal(0);
+  for (const s of salesAgg) {
+    sales = sales.plus(new Decimal(s.subtotal).minus(s.discountAmount));
+  }
+
+  // B. Opening stock valuation (Sum of all stock transactions before startDate)
+  const prevTrans = await db.stockTransaction.findMany({
+    where: { createdAt: { lt: startDate } },
+    select: { quantity: true, unitCost: true }
+  });
+
+  let openingStock = new Decimal(0);
+  for (const pt of prevTrans) {
+    openingStock = openingStock.plus(new Decimal(pt.quantity).times(pt.unitCost));
+  }
+
+  // C. Purchases during the period (PURCHASE_IN stock transactions)
+  const purchTrans = await db.stockTransaction.findMany({
+    where: {
+      createdAt: { gte: startDate, lte: endDate },
+      type: "PURCHASE_IN"
+    },
+    select: { quantity: true, unitCost: true }
+  });
+
+  let purchases = new Decimal(0);
+  for (const pt of purchTrans) {
+    purchases = purchases.plus(new Decimal(pt.quantity).times(pt.unitCost));
+  }
+
+  // D. Closing Stock Valuation (Sum of all stock transactions up to endDate)
+  const endTrans = await db.stockTransaction.findMany({
+    where: { createdAt: { lte: endDate } },
+    select: { quantity: true, unitCost: true }
+  });
+
+  let closingStock = new Decimal(0);
+  for (const et of endTrans) {
+    closingStock = closingStock.plus(new Decimal(et.quantity).times(et.unitCost));
+  }
+
+  // E. Cost of Goods Sold calculations
+  const cogs = openingStock.plus(purchases).minus(closingStock);
+  const grossProfit = sales.minus(cogs);
+
+  return {
+    sales: sales.toString(),
+    openingStock: openingStock.toString(),
+    purchases: purchases.toString(),
+    closingStock: closingStock.toString(),
+    cogs: cogs.toString(),
+    grossProfit: grossProfit.toString()
+  };
+});
+
+export const getProfitLossDataForDates = cache(async (startDate: Date, endDate: Date) => {
+  const db = await getDb();
+
+  // A. Sales Revenue grouped by Channel
+  const invoices = await db.salesInvoice.findMany({
+    where: {
+      invoiceDate: { gte: startDate, lte: endDate },
+      status: { not: "CANCELLED" }
+    },
+    select: { invoiceType: true, subtotal: true, discountAmount: true, totalAmount: true }
+  });
+
+  let retailRevenue = new Decimal(0);
+  let wholesaleRevenue = new Decimal(0);
+  let projectRevenue = new Decimal(0);
+
+  for (const inv of invoices) {
+    const netRevenue = new Decimal(inv.subtotal).minus(inv.discountAmount); // Taxable subtotal (standard revenue)
+    if (inv.invoiceType === "RETAIL") retailRevenue = retailRevenue.plus(netRevenue);
+    else if (inv.invoiceType === "WHOLESALE") wholesaleRevenue = wholesaleRevenue.plus(netRevenue);
+    else if (inv.invoiceType === "PROJECT") projectRevenue = projectRevenue.plus(netRevenue);
+  }
+
+  const totalRevenue = retailRevenue.plus(wholesaleRevenue).plus(projectRevenue);
+
+  // B. Cost of Goods Sold (COGS)
+  const soldTransactions = await db.stockTransaction.findMany({
+    where: {
+      createdAt: { gte: startDate, lte: endDate },
+      type: { in: ["SALE_OUT", "PROJECT_ISSUE"] }
+    },
+    select: { quantity: true, unitCost: true }
+  });
+
+  let cogs = new Decimal(0);
+  for (const st of soldTransactions) {
+    const qty = new Decimal(st.quantity).abs();
+    const cost = new Decimal(st.unitCost);
+    cogs = cogs.plus(qty.times(cost));
+  }
+
+  const grossProfit = totalRevenue.minus(cogs);
+
+  // C. Operating Expenses
+  const expEntries = await db.cashBookEntry.findMany({
+    where: {
+      entryDate: { gte: startDate, lte: endDate },
+      type: "PAID",
+      partyId: null
+    },
+    select: { amount: true }
+  });
+
+  let operatingExpenses = new Decimal(0);
+  for (const exp of expEntries) {
+    operatingExpenses = operatingExpenses.plus(exp.amount);
+  }
+
+  // D. Asset Depreciation
+  const depEntries = await db.depreciationEntry.aggregate({
+    where: {
+      createdAt: { gte: startDate, lte: endDate }
+    },
+    _sum: {
+      amount: true
+    }
+  });
+  const depreciation = new Decimal(depEntries._sum.amount || 0);
+
+  const netProfit = grossProfit.minus(operatingExpenses).minus(depreciation);
+
+  return {
+    revenue: {
+      retail: retailRevenue.toString(),
+      wholesale: wholesaleRevenue.toString(),
+      project: projectRevenue.toString(),
+      total: totalRevenue.toString(),
+    },
+    cogs: cogs.toString(),
+    grossProfit: grossProfit.toString(),
+    operatingExpenses: operatingExpenses.toString(),
+    depreciation: depreciation.toString(),
+    netProfit: netProfit.toString(),
+  };
+});
+
+export const getCashFlowDataForDates = cache(async (startDate: Date, endDate: Date) => {
+  const db = await getDb();
+
+  // A. Operating Activities
+  // 1. Cash Receipts from Customers
+  const receipts = await db.cashBookEntry.findMany({
+    where: {
+      entryDate: { gte: startDate, lte: endDate },
+      type: "RECEIVED",
+      partyType: "CUSTOMER"
+    },
+    select: { amount: true }
+  });
+  let custReceipts = new Decimal(0);
+  for (const r of receipts) custReceipts = custReceipts.plus(r.amount);
+
+  // 2. Cash Paid to Suppliers
+  const supplierPmts = await db.cashBookEntry.findMany({
+    where: {
+      entryDate: { gte: startDate, lte: endDate },
+      type: "PAID",
+      partyType: "SUPPLIER"
+    },
+    select: { amount: true }
+  });
+  let vendorPayments = new Decimal(0);
+  for (const p of supplierPmts) vendorPayments = vendorPayments.plus(p.amount);
+
+  // 3. Operating Expenses Paid
+  const opExps = await db.cashBookEntry.findMany({
+    where: {
+      entryDate: { gte: startDate, lte: endDate },
+      type: "PAID",
+      partyId: null
+    },
+    select: { amount: true }
+  });
+  let expPaid = new Decimal(0);
+  for (const e of opExps) expPaid = expPaid.plus(e.amount);
+
+  const netOperating = custReceipts.minus(vendorPayments).minus(expPaid);
+
+  // B. Investing Activities
+  const assetsPurchased = await db.fixedAsset.findMany({
+    where: {
+      purchaseDate: { gte: startDate, lte: endDate }
+    },
+    select: { purchasePrice: true }
+  });
+  let assetOutflow = new Decimal(0);
+  for (const a of assetsPurchased) assetOutflow = assetOutflow.plus(a.purchasePrice);
+
+  const netInvesting = assetOutflow.negated();
+
+  // C. Financing Activities
+  const financingEntries = await db.cashBookEntry.findMany({
+    where: {
+      entryDate: { gte: startDate, lte: endDate },
+      type: "RECEIVED",
+      OR: [
+        { description: { contains: "capital", mode: "insensitive" } },
+        { description: { contains: "equity", mode: "insensitive" } },
+        { description: { contains: "contribution", mode: "insensitive" } },
+        { referenceType: "FINANCING" }
+      ]
+    },
+    select: { amount: true }
+  });
+  let capitalInflow = new Decimal(0);
+  for (const f of financingEntries) capitalInflow = capitalInflow.plus(f.amount);
+
+  const netFinancing = capitalInflow;
+
+  // D. Summarization & Vault Reconciliation
+  const netChange = netOperating.plus(netInvesting).plus(netFinancing);
+
+  // Opening Cash Balance
+  const priorIn = await db.cashBookEntry.aggregate({
+    where: { entryDate: { lt: startDate }, type: "RECEIVED" },
+    _sum: { amount: true }
+  });
+  const priorOut = await db.cashBookEntry.aggregate({
+    where: { entryDate: { lt: startDate }, type: "PAID" },
+    _sum: { amount: true }
+  });
+  const openingCash = new Decimal(priorIn._sum.amount || 0).minus(priorOut._sum.amount || 0);
+  const closingCash = openingCash.plus(netChange);
+
+  return {
+    operating: {
+      receiptsFromCustomers: custReceipts.toString(),
+      paymentsToSuppliers: vendorPayments.toString(),
+      operatingExpenses: expPaid.toString(),
+      netOperating: netOperating.toString()
+    },
+    investing: {
+      fixedAssetPurchases: assetOutflow.toString(),
+      netInvesting: netInvesting.toString()
+    },
+    financing: {
+      capitalContributions: capitalInflow.toString(),
+      netFinancing: netFinancing.toString()
+    },
+    netChange: netChange.toString(),
+    openingCash: openingCash.toString(),
+    closingCash: closingCash.toString()
+  };
+});
+
+export const getProjectProfitabilityForDates = cache(async (startDate: Date, endDate: Date) => {
+  const db = await getDb();
+
+  const projects = await db.project.findMany({
+    select: {
+      id: true,
+      name: true,
+      projectCode: true,
+      contractAmount: true,
+      status: true,
+      client: { select: { name: true } }
+    }
+  });
+
+  const report = [];
+
+  for (const prj of projects) {
+    // 1. Milestones billed during the period
+    const billingInvoices = await db.salesInvoice.findMany({
+      where: { projectId: prj.id, status: { not: "CANCELLED" }, invoiceDate: { gte: startDate, lte: endDate } },
+      select: { subtotal: true, discountAmount: true }
+    });
+
+    let totalBilled = new Decimal(0);
+    for (const inv of billingInvoices) {
+      totalBilled = totalBilled.plus(new Decimal(inv.subtotal).minus(inv.discountAmount));
+    }
+
+    // 2. Material issues consumption cost during the period
+    const issues = await db.stockTransaction.findMany({
+      where: {
+        referenceType: "PROJECT",
+        referenceId: prj.id,
+        type: "PROJECT_ISSUE",
+        createdAt: { gte: startDate, lte: endDate }
+      },
+      select: { quantity: true, unitCost: true }
+    });
+
+    let materialCost = new Decimal(0);
+    for (const is of issues) {
+      const qty = new Decimal(is.quantity).abs();
+      materialCost = materialCost.plus(qty.times(is.unitCost));
+    }
+
+    // 3. Labor Cost
+    const laborCost = new Decimal(0);
+
+    // Skip projects that had absolutely no billing AND no material issues in this period
+    if (totalBilled.eq(0) && materialCost.eq(0)) {
+      continue;
+    }
+
+    const profit = totalBilled.minus(materialCost).minus(laborCost);
+    const margin = totalBilled.greaterThan(0) ? profit.div(totalBilled).times(100).toNumber() : 0;
+
+    report.push({
+      projectId: prj.id,
+      code: prj.projectCode,
+      name: prj.name,
+      clientName: prj.client?.name || "N/A",
+      contractAmount: new Decimal(prj.contractAmount).toNumber(),
+      totalBilled: totalBilled.toNumber(),
+      materialCost: materialCost.toNumber(),
+      laborCost: laborCost.toNumber(),
+      profit: profit.toNumber(),
+      margin: Math.round(margin * 100) / 100
+    });
+  }
+
+  return report.sort((a, b) => b.profit - a.profit);
+});
+
+export const getVendorOutstandingAsOf = cache(async (endDate: Date) => {
+  const db = await getDb();
+
+  const suppliers = await db.supplier.findMany({
+    select: { id: true, name: true, code: true, panNumber: true, openingBalance: true }
+  });
+
+  const payables = [];
+
+  for (const s of suppliers) {
+    const entries = await db.ledgerEntry.findMany({
+      where: { partyType: "SUPPLIER", partyId: s.id, entryDate: { lte: endDate } },
+      select: { amount: true, entryType: true }
+    });
+
+    let debits = new Decimal(0);
+    let credits = new Decimal(s.openingBalance);
+    for (const e of entries) {
+      if (e.entryType === "CREDIT") credits = credits.plus(e.amount);
+      else debits = debits.plus(e.amount);
+    }
+
+    const balance = credits.minus(debits);
+    if (balance.greaterThan(0)) {
+      payables.push({
+        code: s.code,
+        name: s.name,
+        pan: s.panNumber || "N/A",
+        balance: balance.toNumber()
+      });
+    }
+  }
+
+  return payables.sort((a, b) => b.balance - a.balance);
+});
+
+
 

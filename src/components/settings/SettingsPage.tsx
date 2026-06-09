@@ -21,6 +21,8 @@ import {
 } from "../../modules/settings/actions";
 import { resetAllData } from "../../modules/auth/actions";
 import { SystemSettings, BusinessInfo, InvoiceSettings } from "../../lib/settings-store";
+import { fetchFiscalYearReportDataAction } from "../../modules/accounting/actions";
+import { downloadFiscalYearBinderPDF } from "../../lib/export/fiscal-binder-pdf";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
 import {
@@ -126,6 +128,9 @@ export function SettingsPage({
   const [editWhLoc, setEditWhLoc] = useState("");
   const [editWhDesc, setEditWhDesc] = useState("");
   const [isEditWhOpen, setIsEditWhOpen] = useState(false);
+  const [selectedFiscalYearId, setSelectedFiscalYearId] = useState(
+    initialFiscalYears.find(fy => fy.isCurrent)?.id || initialFiscalYears[0]?.id || ""
+  );
 
   const handleResetAllData = async () => {
     try {
@@ -208,16 +213,20 @@ export function SettingsPage({
 
     try {
       setLoading(true);
-      await createWarehouseAction({
+      const res = await createWarehouseAction({
         name: newWhName,
         location: newWhLoc,
         description: newWhDesc,
       });
-      toast.success(`Warehouse: ${newWhName} added to registry.`);
-      setNewWhName("");
-      setNewWhLoc("");
-      setNewWhDesc("");
-      window.location.reload();
+      if (res && !res.success) {
+        toast.error(res.error || "Failed to add warehouse.");
+      } else {
+        toast.success(`Warehouse: ${newWhName} added to registry.`);
+        setNewWhName("");
+        setNewWhLoc("");
+        setNewWhDesc("");
+        window.location.reload();
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to add warehouse.");
     } finally {
@@ -229,14 +238,18 @@ export function SettingsPage({
   const handleToggleWarehouse = async (id: string, currentWh: any) => {
     try {
       setLoading(true);
-      await updateWarehouseAction(id, {
+      const res = await updateWarehouseAction(id, {
         name: currentWh.name,
         location: currentWh.location,
         description: currentWh.description,
         isActive: !currentWh.isActive,
       });
-      toast.success(`Warehouse ${currentWh.name} status updated.`);
-      window.location.reload();
+      if (res && !res.success) {
+        toast.error(res.error || "Failed to modify warehouse status.");
+      } else {
+        toast.success(`Warehouse ${currentWh.name} status updated.`);
+        window.location.reload();
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to modify warehouse status.");
     } finally {
@@ -248,9 +261,13 @@ export function SettingsPage({
   const handleDeleteWarehouse = async (id: string) => {
     try {
       setLoading(true);
-      await deleteWarehouseAction(id);
-      toast.success("Warehouse deleted successfully.");
-      window.location.reload();
+      const res = await deleteWarehouseAction(id);
+      if (res && !res.success) {
+        toast.error(res.error || "Failed to delete warehouse.");
+      } else {
+        toast.success("Warehouse deleted successfully.");
+        window.location.reload();
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to delete warehouse.");
     } finally {
@@ -268,16 +285,20 @@ export function SettingsPage({
     }
     try {
       setLoading(true);
-      await updateWarehouseAction(selectedWarehouse.id, {
+      const res = await updateWarehouseAction(selectedWarehouse.id, {
         name: editWhName,
         location: editWhLoc,
         description: editWhDesc,
         isActive: selectedWarehouse.isActive,
       });
-      toast.success("Warehouse updated successfully.");
-      setIsEditWhOpen(false);
-      setSelectedWarehouse(null);
-      window.location.reload();
+      if (res && !res.success) {
+        toast.error(res.error || "Failed to update warehouse.");
+      } else {
+        toast.success("Warehouse updated successfully.");
+        setIsEditWhOpen(false);
+        setSelectedWarehouse(null);
+        window.location.reload();
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to update warehouse.");
     } finally {
@@ -295,16 +316,20 @@ export function SettingsPage({
 
     try {
       setLoading(true);
-      await createFiscalYearAction({
+      const res = await createFiscalYearAction({
         name: newFyName,
         startDate: newFyStart,
         endDate: newFyEnd,
       });
-      toast.success(`Fiscal period ${newFyName} initialized.`);
-      setNewFyName("");
-      setNewFyStart("");
-      setNewFyEnd("");
-      window.location.reload();
+      if (res && !res.success) {
+        toast.error(res.error || "Failed to create fiscal period.");
+      } else {
+        toast.success(`Fiscal period ${newFyName} initialized.`);
+        setNewFyName("");
+        setNewFyStart("");
+        setNewFyEnd("");
+        window.location.reload();
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to create fiscal period.");
     } finally {
@@ -316,15 +341,19 @@ export function SettingsPage({
   const handleToggleFiscalYear = async (id: string, action: "close" | "setCurrent" | "reopen") => {
     try {
       setLoading(true);
-      await toggleFiscalYearStatusAction(id, action);
-      toast.success(
-        action === "close"
-          ? "Fiscal period locked and closed successfully."
-          : action === "reopen"
-          ? "Fiscal period reopened successfully."
-          : "Active fiscal period context updated."
-      );
-      window.location.reload();
+      const res = await toggleFiscalYearStatusAction(id, action);
+      if (res && !res.success) {
+        toast.error(res.error || "Failed to alter fiscal period context.");
+      } else {
+        toast.success(
+          action === "close"
+            ? "Fiscal period locked and closed successfully."
+            : action === "reopen"
+            ? "Fiscal period reopened successfully."
+            : "Active fiscal period context updated."
+        );
+        window.location.reload();
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to alter fiscal period context.");
     } finally {
@@ -353,6 +382,31 @@ export function SettingsPage({
       toast.success("System data compile successful. JSON backup downloaded.");
     } catch (err: any) {
       toast.error(err.message || "Compilation failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadFiscalBinder = async () => {
+    if (!selectedFiscalYearId) {
+      toast.error("Please select a fiscal year first.");
+      return;
+    }
+    try {
+      setLoading(true);
+      const data = await fetchFiscalYearReportDataAction(selectedFiscalYearId);
+      const blob = await downloadFiscalYearBinderPDF(data);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Fiscal_Year_Binder_${data.fiscalYear.name}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success(`Fiscal year ${data.fiscalYear.name} binder downloaded successfully.`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate report binder.");
     } finally {
       setLoading(false);
     }
@@ -1024,7 +1078,7 @@ export function SettingsPage({
 
       {/* 5. Database Backup Tab */}
       {activeTab === "backup" && (
-        <div className="max-w-2xl">
+        <div className="max-w-2xl space-y-6">
           <Card className="border border-zinc-100 shadow-sm rounded-2xl dark:border-zinc-800 dark:bg-zinc-950 p-8 text-center space-y-6">
             <div className="inline-flex p-4 rounded-full bg-blue-50 text-blue-500 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 animate-pulse">
               <Database className="h-10 w-10" />
@@ -1040,7 +1094,7 @@ export function SettingsPage({
             </div>
 
             {!isSuperAdmin && (
-              <div className="flex gap-2.5 p-3.5 bg-rose-50 dark:bg-rose-950/20 rounded-xl border border-rose-100 dark:border-rose-900/30 text-rose-800 dark:text-rose-400 text-xs leading-relaxed font-semibold max-w-md mx-auto text-left">
+              <div className="flex gap-2.5 p-3.5 bg-rose-50 dark:bg-rose-950/20 rounded-xl border border-rose-100 dark:border-rose-900/30 text-rose-800 dark:text-rose-450 text-xs leading-relaxed font-semibold max-w-md mx-auto text-left">
                 <Lock className="h-5 w-5 flex-shrink-0 text-rose-500 mt-0.5" />
                 <div>
                   <span className="font-bold">Security Boundary Policy:</span> Backup exports contain sensitive encrypted passwords, ledger journals, and cash balances. Access is strictly locked to users with the <span className="font-mono bg-rose-100 dark:bg-rose-900 px-1 py-0.5 rounded text-rose-600 dark:text-rose-450 uppercase text-[10px]">SUPERADMIN</span> role.
@@ -1056,6 +1110,51 @@ export function SettingsPage({
               >
                 {loading ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <Download className="h-4.5 w-4.5" />}
                 Download ERP Backup JSON
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="border border-zinc-100 shadow-sm rounded-2xl dark:border-zinc-800 dark:bg-zinc-950 p-8 text-center space-y-6">
+            <div className="inline-flex p-4 rounded-full bg-violet-50 text-violet-500 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900/30 animate-pulse">
+              <FileText className="h-10 w-10" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
+                Annual Operations & Audit PDF Binder
+              </h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
+                Compile and export a certified, multi-page A4 PDF audit binder containing the Trading Account, Profit & Loss statement, Balance Sheet, Cash Flow, top selling products, outstanding suppliers, and project profitability.
+              </p>
+            </div>
+
+            <div className="max-w-xs mx-auto space-y-4 pt-2">
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="report-fiscal-year" className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                  Select Audited Fiscal Year
+                </Label>
+                <select
+                  id="report-fiscal-year"
+                  value={selectedFiscalYearId}
+                  onChange={(e) => setSelectedFiscalYearId(e.target.value)}
+                  className="w-full h-10 px-3 py-2 border border-zinc-200 text-sm font-semibold rounded-xl dark:border-zinc-800 dark:bg-zinc-950 focus:outline-none"
+                >
+                  <option value="" disabled>-- Choose Period --</option>
+                  {initialFiscalYears.map((fy) => (
+                    <option key={fy.id} value={fy.id}>
+                      {fy.name} {fy.isCurrent ? "(Current)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <Button
+                onClick={handleDownloadFiscalBinder}
+                disabled={loading || !selectedFiscalYearId || !isAdminOrOwner}
+                className="w-full h-11 rounded-xl font-bold flex items-center justify-center gap-2 shadow-md shadow-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed bg-violet-600 hover:bg-violet-750 text-white"
+              >
+                {loading ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <Download className="h-4.5 w-4.5" />}
+                Download Fiscal Year PDF Binder
               </Button>
             </div>
           </Card>

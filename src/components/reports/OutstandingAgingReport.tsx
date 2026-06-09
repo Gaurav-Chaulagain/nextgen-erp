@@ -46,11 +46,11 @@ export function OutstandingAgingReport({ data }: OutstandingAgingReportProps) {
           <div className="grid grid-cols-8 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 px-5 py-4 text-xs font-bold uppercase tracking-wider text-zinc-400">
             <span className="col-span-1">Code</span>
             <span className="col-span-2">Customer Description</span>
-            <span className="text-right">0-30 Days</span>
-            <span className="text-right">31-60 Days</span>
-            <span className="text-right">61-90 Days</span>
-            <span className="text-right text-rose-500">90+ Overdue</span>
-            <span className="text-right">Total Outstanding</span>
+            <span className="text-right">0-30 Days (NPR)</span>
+            <span className="text-right">31-60 Days (NPR)</span>
+            <span className="text-right">61-90 Days (NPR)</span>
+            <span className="text-right text-rose-500">90+ Overdue (NPR)</span>
+            <span className="text-right">Total Outstanding (NPR)</span>
           </div>
 
           <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
@@ -66,24 +66,24 @@ export function OutstandingAgingReport({ data }: OutstandingAgingReportProps) {
                 </div>
                 
                 {/* 0-30 Days (Light alert) */}
-                <span className="text-right text-zinc-600 dark:text-zinc-400"><NPRAmount amount={r["0-30"]} /></span>
+                <span className="text-right text-zinc-600 dark:text-zinc-400"><NPRAmount amount={r["0-30"]} showCurrency={false} /></span>
                 
                 {/* 31-60 Days (Mild warning - yellow tint) */}
                 <span className={`text-right ${r["31-60"] > 0 ? "text-amber-500 font-bold" : "text-zinc-600 dark:text-zinc-400"}`}>
-                  <NPRAmount amount={r["31-60"]} />
+                  <NPRAmount amount={r["31-60"]} showCurrency={false} />
                 </span>
 
                 {/* 61-90 Days (Moderate warning - orange tint) */}
                 <span className={`text-right ${r["61-90"] > 0 ? "text-orange-500 font-bold" : "text-zinc-600 dark:text-zinc-400"}`}>
-                  <NPRAmount amount={r["61-90"]} />
+                  <NPRAmount amount={r["61-90"]} showCurrency={false} />
                 </span>
 
                 {/* 90+ Days (Severe overdue - deep red alert background) */}
                 <span className={`text-right px-2.5 py-1 rounded-xl ${r["90+"] > 0 ? "bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 font-extrabold" : "text-zinc-600 dark:text-zinc-400"}`}>
-                  <NPRAmount amount={r["90+"]} />
+                  <NPRAmount amount={r["90+"]} showCurrency={false} />
                 </span>
 
-                <span className="text-right text-zinc-900 dark:text-zinc-50 font-bold"><NPRAmount amount={r.total} /></span>
+                <span className="text-right text-zinc-900 dark:text-zinc-50 font-bold"><NPRAmount amount={r.total} showCurrency={false} /></span>
               </div>
             ))}
 
@@ -97,11 +97,11 @@ export function OutstandingAgingReport({ data }: OutstandingAgingReportProps) {
             <div className="grid grid-cols-8 px-5 py-5 items-center bg-zinc-50/50 dark:bg-zinc-900/30 font-extrabold border-t border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 uppercase tracking-wider text-xs">
               <span className="col-span-1">-</span>
               <span className="col-span-2">TOTAL AGED RECEIVABLES</span>
-              <span className="text-right"><NPRAmount amount={total30} /></span>
-              <span className="text-right text-amber-500"><NPRAmount amount={total60} /></span>
-              <span className="text-right text-orange-500"><NPRAmount amount={total90} /></span>
-              <span className="text-right text-rose-600 dark:text-rose-400"><NPRAmount amount={totalOver} /></span>
-              <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={grandTotal} /></span>
+              <span className="text-right"><NPRAmount amount={total30} showCurrency={false} /></span>
+              <span className="text-right text-amber-500"><NPRAmount amount={total60} showCurrency={false} /></span>
+              <span className="text-right text-orange-500"><NPRAmount amount={total90} showCurrency={false} /></span>
+              <span className="text-right text-rose-600 dark:text-rose-400"><NPRAmount amount={totalOver} showCurrency={false} /></span>
+              <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={grandTotal} showCurrency={false} /></span>
             </div>
           </div>
         </div>

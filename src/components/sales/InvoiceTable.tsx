@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/DataTable";
-import { formatNPR } from "@/lib/utils";
+
 import type { ColumnDef } from "@tanstack/react-table";
 import type { SalesInvoiceSchema } from "@/modules/sales/types";
 import { InvoicePreviewModal } from "./InvoicePreviewModal";

@@ -50,59 +50,59 @@ export function ProfitLossReport({ data }: ProfitLossReportProps) {
             <div className="px-6 py-4 bg-zinc-50/30 dark:bg-zinc-900/10 text-xs font-bold text-zinc-400 uppercase tracking-wider">Revenue from Operations</div>
             <div className="grid grid-cols-2 px-6 py-3.5 items-center">
               <span className="text-zinc-500 dark:text-zinc-400 pl-4">Retail Sales Channel</span>
-              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.revenue.retail)} /></span>
+              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.revenue.retail)} showCurrency={false} /></span>
             </div>
             <div className="grid grid-cols-2 px-6 py-3.5 items-center">
               <span className="text-zinc-500 dark:text-zinc-400 pl-4">Wholesale Sales Channel</span>
-              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.revenue.wholesale)} /></span>
+              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.revenue.wholesale)} showCurrency={false} /></span>
             </div>
             <div className="grid grid-cols-2 px-6 py-3.5 items-center">
               <span className="text-zinc-500 dark:text-zinc-400 pl-4">Projects Site Accounts</span>
-              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.revenue.project)} /></span>
+              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.revenue.project)} showCurrency={false} /></span>
             </div>
             <div className="grid grid-cols-2 px-6 py-4 items-center bg-zinc-50/50 dark:bg-zinc-900/30 font-bold border-b border-zinc-200 dark:border-zinc-700">
               <span className="text-zinc-800 dark:text-zinc-200 pl-2">Total Gross Revenue (A)</span>
-              <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={Number(data.revenue.total)} /></span>
+              <span className="text-right text-zinc-900 dark:text-zinc-50"><NPRAmount amount={Number(data.revenue.total)} showCurrency={false} /></span>
             </div>
 
             {/* COGS */}
             <div className="px-6 py-4 bg-zinc-50/30 dark:bg-zinc-900/10 text-xs font-bold text-zinc-400 uppercase tracking-wider">Cost of Sales</div>
             <div className="grid grid-cols-2 px-6 py-3.5 items-center">
               <span className="text-zinc-500 dark:text-zinc-400 pl-4">Procurement & Dispatched Materials cost</span>
-              <span className="text-right text-rose-600 dark:text-rose-400"><NPRAmount amount={Number(data.cogs)} /></span>
+              <span className="text-right text-rose-600 dark:text-rose-400"><NPRAmount amount={Number(data.cogs)} showCurrency={false} /></span>
             </div>
             <div className="grid grid-cols-2 px-6 py-4 items-center bg-zinc-50/50 dark:bg-zinc-900/30 font-bold border-b border-zinc-200 dark:border-zinc-700">
               <span className="text-zinc-800 dark:text-zinc-200 pl-2">Total Cost of Goods Sold (B)</span>
-              <span className="text-right text-rose-600 dark:text-rose-400"><NPRAmount amount={Number(data.cogs)} /></span>
+              <span className="text-right text-rose-600 dark:text-rose-400"><NPRAmount amount={Number(data.cogs)} showCurrency={false} /></span>
             </div>
 
             {/* Gross Margin */}
             <div className="grid grid-cols-2 px-6 py-5 items-center bg-emerald-50/30 dark:bg-emerald-950/10 font-extrabold border-y border-emerald-100 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400">
               <span className="pl-2">GROSS MARGIN (C = A - B)</span>
-              <span className="text-right"><NPRAmount amount={Number(data.grossProfit)} /></span>
+              <span className="text-right"><NPRAmount amount={Number(data.grossProfit)} showCurrency={false} /></span>
             </div>
 
             {/* Operating Expenses */}
             <div className="px-6 py-4 bg-zinc-50/30 dark:bg-zinc-900/10 text-xs font-bold text-zinc-400 uppercase tracking-wider">Operating Expenses & Payouts</div>
             <div className="grid grid-cols-2 px-6 py-3.5 items-center">
               <span className="text-zinc-500 dark:text-zinc-400 pl-4">Administrative & Operational Overheads</span>
-              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.operatingExpenses)} /></span>
+              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.operatingExpenses)} showCurrency={false} /></span>
             </div>
             <div className="grid grid-cols-2 px-6 py-3.5 items-center">
               <span className="text-zinc-500 dark:text-zinc-400 pl-4">Fixed Assets Depreciation Write-offs</span>
-              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.depreciation)} /></span>
+              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.depreciation)} showCurrency={false} /></span>
             </div>
             <div className="grid grid-cols-2 px-6 py-4 items-center bg-zinc-50/50 dark:bg-zinc-900/30 font-bold border-b border-zinc-200 dark:border-zinc-700">
               <span className="text-zinc-800 dark:text-zinc-200 pl-2">Total Expenses (D)</span>
               <span className="text-right text-rose-600 dark:text-rose-400">
-                <NPRAmount amount={Number(data.operatingExpenses) + Number(data.depreciation)} />
+                <NPRAmount amount={Number(data.operatingExpenses) + Number(data.depreciation)} showCurrency={false} />
               </span>
             </div>
 
             {/* Net profit */}
             <div className={`grid grid-cols-2 px-6 py-5 items-center font-extrabold text-base border-t border-zinc-300 dark:border-zinc-600 ${isLoss ? "bg-rose-50/40 dark:bg-rose-950/15 text-rose-600 dark:text-rose-400" : "bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400"}`}>
               <span className="pl-2">NET COMPREHENSIVE PROFIT / LOSS (C - D)</span>
-              <span className="text-right"><NPRAmount amount={Number(data.netProfit)} showSign={true} /></span>
+              <span className="text-right"><NPRAmount amount={Number(data.netProfit)} showSign={true} showCurrency={false} /></span>
             </div>
           </div>
         </div>

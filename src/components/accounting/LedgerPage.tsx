@@ -158,25 +158,25 @@ export function LedgerPage() {
     },
     {
       accessorKey: "totalDr",
-      header: "Total Debits (Dr)",
+      header: "Total Debits (Dr, NPR)",
       cell: ({ row }) => (
         <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-          <NPRAmount amount={Number(row.getValue("totalDr"))} />
+          <NPRAmount amount={Number(row.getValue("totalDr"))} showCurrency={false} />
         </span>
       ),
     },
     {
       accessorKey: "totalCr",
-      header: "Total Credits (Cr)",
+      header: "Total Credits (Cr, NPR)",
       cell: ({ row }) => (
         <span className="font-semibold text-rose-600 dark:text-rose-400">
-          <NPRAmount amount={Number(row.getValue("totalCr"))} />
+          <NPRAmount amount={Number(row.getValue("totalCr"))} showCurrency={false} />
         </span>
       ),
     },
     {
       accessorKey: "balance",
-      header: "Outstanding Balance",
+      header: "Outstanding Balance (NPR)",
       cell: ({ row }) => {
         const bal = Number(row.getValue("balance"));
         const isSupplier = row.original.type === "SUPPLIER";
@@ -192,7 +192,7 @@ export function LedgerPage() {
 
         return (
           <span className={`font-bold ${color}`}>
-            <NPRAmount amount={bal} showSign={true} />
+            <NPRAmount amount={bal} showSign={true} showCurrency={false} />
             <span className="text-[10px] ml-1 font-semibold text-zinc-400">
               {isSupplier ? "(Cr Payable)" : "(Dr Receivable)"}
             </span>

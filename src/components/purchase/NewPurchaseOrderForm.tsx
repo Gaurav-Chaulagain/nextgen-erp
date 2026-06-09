@@ -3,9 +3,20 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
-import { getPurchaseLookups, createPurchaseOrder, submitPurchaseOrder } from "@/modules/purchase/actions";
+import {
+  getPurchaseLookups,
+  createPurchaseOrder,
+  submitPurchaseOrder,
+} from "@/modules/purchase/actions";
 import { createPurchaseOrderSchema } from "@/modules/purchase/types";
 import { toast } from "sonner";
 import { Plus, Trash2, Calendar, FileText, ShoppingBag } from "lucide-react";
@@ -87,13 +98,15 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
               unit: product.unit,
               unitPrice: 0,
             }
-          : item
-      )
+          : item,
+      ),
     );
   };
 
   const updateItem = (id: string, updates: Partial<LineItem>) => {
-    setItems(items.map((item) => (item.id === id ? { ...item, ...updates } : item)));
+    setItems(
+      items.map((item) => (item.id === id ? { ...item, ...updates } : item)),
+    );
   };
 
   // Calculations
@@ -134,9 +147,10 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
     const parsed = createPurchaseOrderSchema.safeParse(payload);
     if (!parsed.success) {
       const fieldErrors = parsed.error.flatten().fieldErrors;
-      const errorMsg = Object.entries(fieldErrors)
-        .map(([field, errs]) => `${field}: ${errs?.join(", ")}`)
-        .join(" | ") || "Validation failed.";
+      const errorMsg =
+        Object.entries(fieldErrors)
+          .map(([field, errs]) => `${field}: ${errs?.join(", ")}`)
+          .join(" | ") || "Validation failed.";
       toast.error(`Validation Failed: ${errorMsg}`);
       return;
     }
@@ -152,9 +166,13 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
         await submitPurchaseOrder(po.id, userId);
       }
 
-      toast.success(shouldSubmit ? "Purchase Order submitted successfully!" : "Draft Purchase Order saved!");
+      toast.success(
+        shouldSubmit
+          ? "Purchase Order submitted successfully!"
+          : "Draft Purchase Order saved!",
+      );
       setOpen(false);
-      
+
       // Reset form state
       setSupplierId("");
       setPoDate(new Date().toISOString().split("T")[0]);
@@ -167,7 +185,9 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
       router.refresh();
     } catch (err: any) {
       console.error(err);
-      toast.error("Error: " + (err.message || "Failed to process Purchase Order"));
+      toast.error(
+        "Error: " + (err.message || "Failed to process Purchase Order"),
+      );
     } finally {
       setSaving(false);
     }
@@ -181,10 +201,12 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
         <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-hidden bg-white border border-zinc-200 text-zinc-900 rounded-2xl shadow-xl">
           <DialogHeader className="border-b border-zinc-200 pb-3">
             <DialogTitle className="text-xl font-bold text-zinc-900 flex items-center gap-2">
-              <ShoppingBag size={20} className="text-blue-600" /> Create Purchase Order
+              <ShoppingBag size={20} className="text-blue-600" /> Create
+              Purchase Order
             </DialogTitle>
             <DialogDescription className="text-zinc-500 text-xs mt-0.5">
-              Draft or submit a new procurement request with material specifications and quantities.
+              Draft or submit a new procurement request with material
+              specifications and quantities.
             </DialogDescription>
           </DialogHeader>
 
@@ -192,7 +214,9 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
             {/* Header Section */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-5 rounded-xl border border-zinc-200 bg-zinc-50/50 shadow-sm">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">Supplier *</label>
+                <label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">
+                  Supplier *
+                </label>
                 <select
                   value={supplierId}
                   onChange={(e) => {
@@ -203,7 +227,9 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                 >
                   <option value="">-- Select Supplier --</option>
                   {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -212,7 +238,9 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                 <DualDatePicker
                   label="PO Date"
                   value={poDate}
-                  onChange={(date) => setPoDate(date.toISOString().split("T")[0])}
+                  onChange={(date) =>
+                    setPoDate(date.toISOString().split("T")[0])
+                  }
                   required
                 />
               </div>
@@ -221,12 +249,16 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                 <DualDatePicker
                   label="Expected Delivery"
                   value={expectedDelivery || undefined}
-                  onChange={(date) => setExpectedDelivery(date.toISOString().split("T")[0])}
+                  onChange={(date) =>
+                    setExpectedDelivery(date.toISOString().split("T")[0])
+                  }
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">Accounting Context</label>
+                <label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">
+                  Accounting Context
+                </label>
                 <Input
                   placeholder="ACCOUNTS PAYABLE"
                   disabled
@@ -237,7 +269,9 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">Notes / Terms</label>
+              <label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">
+                Notes / Terms
+              </label>
               <Input
                 placeholder="Purchase terms, special shipping instructions, delivery coordinator..."
                 value={notes}
@@ -250,7 +284,8 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
             <div className="border border-zinc-200 rounded-xl p-5 space-y-4 bg-zinc-50/20">
               <div className="flex justify-between items-center pb-2 border-b border-zinc-200">
                 <h3 className="font-bold text-xs uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
-                  <FileText size={14} className="text-blue-600" /> Dispatched Supply Demands
+                  <FileText size={14} className="text-blue-600" /> Dispatched
+                  Supply Demands
                 </h3>
                 <Button
                   variant="outline"
@@ -265,23 +300,45 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
 
               {!supplierId ? (
                 <div className="text-center py-8 border border-dashed border-zinc-300 rounded-lg bg-white/50">
-                  <p className="text-sm text-zinc-400 italic">Please select a supplier first to configure line item demands</p>
+                  <p className="text-sm text-zinc-400 italic">
+                    Please select a supplier first to configure line item
+                    demands
+                  </p>
                 </div>
               ) : items.length === 0 ? (
                 <div className="text-center py-8 border border-dashed border-zinc-300 rounded-lg bg-white/50">
-                  <p className="text-sm text-zinc-400 italic">No lines added yet. Click &quot;Add Procurement Line&quot; to define materials.</p>
+                  <p className="text-sm text-zinc-400 italic">
+                    No lines added yet. Click &quot;Add Procurement Line&quot;
+                    to define materials.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {items.map((item, index) => (
-                    <div key={item.id} className="grid grid-cols-12 gap-3 items-end p-4 border border-zinc-200 rounded-xl bg-white relative shadow-sm hover:border-zinc-300 transition-colors duration-150">
-                      
+                    <div
+                      key={item.id}
+                      className="grid grid-cols-12 gap-3 items-end p-4 border border-zinc-200 rounded-xl bg-white relative shadow-sm hover:border-zinc-300 transition-colors duration-150"
+                    >
                       {/* Product select */}
                       <div className="col-span-12 sm:col-span-4">
-                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Product *</label>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-[10px] font-semibold text-zinc-500 block">
+                            Product *
+                          </label>
+                          <a
+                            href="/inventory?addProduct=true"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[9px] font-bold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-0.5"
+                          >
+                            + Create Product
+                          </a>
+                        </div>
                         <select
                           value={item.productId}
-                          onChange={(e) => handleProductChange(item.id, e.target.value)}
+                          onChange={(e) =>
+                            handleProductChange(item.id, e.target.value)
+                          }
                           className="w-full h-9 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
                         >
                           <option value="">-- Select Product --</option>
@@ -295,28 +352,51 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
 
                       {/* Quantity input */}
                       <div className="col-span-6 sm:col-span-2">
-                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Quantity *</label>
+                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">
+                          Quantity *
+                        </label>
                         <Input
                           type="number"
                           placeholder="0"
                           value={item.quantity}
                           min={1}
-                          onChange={(e) => updateItem(item.id, { quantity: Math.max(1, parseInt(e.target.value) || 0) })}
+                          onChange={(e) =>
+                            updateItem(item.id, {
+                              quantity: Math.max(
+                                1,
+                                parseInt(e.target.value) || 0,
+                              ),
+                            })
+                          }
                           className="h-9 bg-white border-zinc-300 text-zinc-900 text-xs shadow-sm focus:border-blue-500"
                         />
                       </div>
 
                       {/* Unit select dropdown */}
                       <div className="col-span-6 sm:col-span-1.5">
-                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Unit</label>
+                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">
+                          Unit
+                        </label>
                         <select
                           value={item.unit}
-                          onChange={(e) => updateItem(item.id, { unit: e.target.value })}
+                          onChange={(e) =>
+                            updateItem(item.id, { unit: e.target.value })
+                          }
                           className="w-full h-9 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
                         >
-                          {!["PCS", "BAG", "METER", "KG", "LITRE", "SQ_FT", "ROLL", "BOX"].includes(item.unit) && item.unit && (
-                            <option value={item.unit}>{item.unit}</option>
-                          )}
+                          {![
+                            "PCS",
+                            "BAG",
+                            "METER",
+                            "KG",
+                            "LITRE",
+                            "SQ_FT",
+                            "ROLL",
+                            "BOX",
+                          ].includes(item.unit) &&
+                            item.unit && (
+                              <option value={item.unit}>{item.unit}</option>
+                            )}
                           <option value="PCS">PCS</option>
                           <option value="BAG">BAG</option>
                           <option value="METER">METER</option>
@@ -330,11 +410,15 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
 
                       {/* Line Specifications */}
                       <div className="col-span-10 sm:col-span-4">
-                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Line Specifications / Notes</label>
+                        <label className="text-[10px] font-semibold text-zinc-500 block mb-1">
+                          Line Specifications / Notes
+                        </label>
                         <Input
                           placeholder="e.g. thickness, color spec..."
                           value={item.notes}
-                          onChange={(e) => updateItem(item.id, { notes: e.target.value })}
+                          onChange={(e) =>
+                            updateItem(item.id, { notes: e.target.value })
+                          }
                           className="h-9 bg-white border-zinc-300 text-zinc-900 text-xs shadow-sm focus:border-blue-500"
                         />
                       </div>

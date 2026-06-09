@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogD
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatNPR } from "@/lib/utils";
+import { formatAmountOnly } from "@/lib/utils";
 import type { SalesInvoiceSchema } from "@/modules/sales/types";
 import { createSalesReturn } from "@/modules/sales/actions";
 import { toast } from "sonner";
@@ -149,7 +149,7 @@ export function CreateReturnModal({ open, onOpenChange, invoice }: CreateReturnM
                   <div className="col-span-12 sm:col-span-4">
                     <p className="font-semibold text-zinc-900">{item.productName}</p>
                     <p className="text-[10px] text-zinc-500 font-mono mt-0.5">
-                      {item.productCode} • Rate: {formatNPR(parseFloat(item.unitPrice))}
+                      {item.productCode} • Rate: {formatAmountOnly(parseFloat(item.unitPrice))}
                     </p>
                   </div>
 
@@ -173,7 +173,7 @@ export function CreateReturnModal({ open, onOpenChange, invoice }: CreateReturnM
 
                     <div className="text-center bg-rose-50/40 py-1.5 rounded border border-rose-100 shadow-sm">
                       <span className="text-[9px] text-rose-600 uppercase font-semibold block">Refund (NPR)</span>
-                      <p className="text-xs font-bold text-rose-600">{formatNPR(refundValue)}</p>
+                      <p className="text-xs font-bold text-rose-600">{formatAmountOnly(refundValue)}</p>
                     </div>
                   </div>
                 </div>
@@ -186,17 +186,17 @@ export function CreateReturnModal({ open, onOpenChange, invoice }: CreateReturnM
             <div className="mt-4 p-4 rounded-xl border border-rose-100 bg-rose-50/10 space-y-2 max-w-md ml-auto">
               <div className="flex justify-between text-sm text-zinc-650">
                 <span>Subtotal:</span>
-                <span className="font-semibold text-zinc-900">{formatNPR(totalRefundSubtotal)}</span>
+                <span className="font-semibold text-zinc-900">{formatAmountOnly(totalRefundSubtotal)}</span>
               </div>
               {hasVat && (
                 <div className="flex justify-between text-sm text-zinc-650">
                   <span>VAT ({invoiceVatPercent}%):</span>
-                  <span className="font-semibold text-zinc-900">{formatNPR(vatAmount)}</span>
+                  <span className="font-semibold text-zinc-900">{formatAmountOnly(vatAmount)}</span>
                 </div>
               )}
               <div className="border-t border-rose-150 pt-2 flex justify-between text-base font-bold text-rose-700">
                 <span>Total Credit Note Value:</span>
-                <span>{formatNPR(totalCredit)}</span>
+                <span>{formatAmountOnly(totalCredit)}</span>
               </div>
             </div>
           )}

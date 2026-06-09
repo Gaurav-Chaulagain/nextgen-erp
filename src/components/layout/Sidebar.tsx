@@ -66,23 +66,29 @@ export function Sidebar({ user, onMobileClose, isMobileDrawer = false }: Sidebar
   const SidebarContent = ({ forceExpand = false }: { forceExpand?: boolean }) => (
     <div className="flex flex-col h-full bg-zinc-900 text-zinc-300 dark:bg-black border-r border-zinc-800">
       {/* Brand Header */}
-      <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-800/60 shrink-0">
-        <Link href="/dashboard" className="flex flex-col w-full" onClick={onMobileClose}>
-          <span className={`text-md font-bold tracking-tight text-white uppercase truncate ${
-            forceExpand ? "inline text-left" : "hidden lg:inline text-left"
+      <div className={`flex items-center justify-between py-5 border-b border-zinc-800/60 shrink-0 ${
+        forceExpand ? "px-6" : "px-4 lg:px-6"
+      }`}>
+        <Link
+          href="/dashboard"
+          className={`flex items-center gap-2.5 w-full ${
+            forceExpand ? "justify-start" : "justify-center lg:justify-start"
+          }`}
+          onClick={onMobileClose}
+        >
+          <div className="shrink-0 flex items-center justify-center">
+            <img src="/logo.png" className="h-9 w-9 object-contain" alt="NextGen ERP Logo" />
+          </div>
+          <div className={`flex flex-col truncate ${
+            forceExpand ? "flex" : "hidden lg:flex"
           }`}>
-            NextGen ERP
-          </span>
-          {!forceExpand && (
-            <span className="text-md font-bold tracking-tight text-white uppercase inline lg:hidden text-center">
-              NG
+            <span className="text-sm lg:text-md font-bold tracking-tight text-white uppercase truncate">
+              NextGen ERP
             </span>
-          )}
-          <span className={`text-xs text-zinc-500 font-medium truncate mt-0.5 ${
-            forceExpand ? "inline text-left" : "hidden lg:inline text-left"
-          }`}>
-            Interior & Waterproofing
-          </span>
+            <span className="text-[10px] lg:text-xs text-zinc-500 font-medium truncate mt-0.5">
+              Interior & Waterproofing
+            </span>
+          </div>
         </Link>
       </div>
 

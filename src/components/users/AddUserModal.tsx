@@ -90,7 +90,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
     setLoading(true);
     startTransition(async () => {
       try {
-        await createUserAction({
+        const res = await createUserAction({
           name,
           email,
           phone: phone.replace(/[\s\-]/g, "") || undefined,
@@ -99,9 +99,13 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
           isActive,
         });
 
-        toast.success("Staff member account successfully created and welcome logs dispatched.");
-        onSuccess();
-        handleClose();
+        if (res && !res.success) {
+          toast.error(res.error || "Failed to create user account.");
+        } else {
+          toast.success("Staff member account successfully created and welcome logs dispatched.");
+          onSuccess();
+          handleClose();
+        }
       } catch (err: any) {
         toast.error(err.message || "Failed to create user account.");
       } finally {

@@ -5,7 +5,7 @@ import { useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/DataTable";
-import { formatNPR } from "@/lib/utils";
+import { formatNepaliNumber } from "@/lib/utils";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ProjectProfitabilitySchema } from "@/modules/projects/types";
 import { updateProjectStatus } from "@/modules/projects/actions";
@@ -42,6 +42,12 @@ export function ProjectsTable({ projects, onIssueSupply, onEdit }: ProjectsTable
     ON_HOLD: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
     COMPLETED: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200",
     CANCELLED: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
+  };
+
+  const formatNumberOnly = (amount: number | string) => {
+    const val = Number(amount) || 0;
+    const parts = val.toFixed(2).split(".");
+    return `${formatNepaliNumber(Number(parts[0]))}.${parts[1]}`;
   };
 
   const columns: ColumnDef<ProjectProfitabilitySchema, any>[] = [
@@ -84,35 +90,39 @@ export function ProjectsTable({ projects, onIssueSupply, onEdit }: ProjectsTable
     },
     {
       accessorKey: "contractAmount",
-      header: "Budget/Contract",
-      cell: ({ row }) => formatNPR(Number(row.original.contractAmount)),
+      header: "Budget/Contract (NPR)",
+      cell: ({ row }) => (
+        <span className="font-semibold text-blue-600 dark:text-blue-400">
+          {formatNumberOnly(row.original.contractAmount)}
+        </span>
+      ),
     },
     {
       accessorKey: "totalCost",
-      header: "Material Cost",
+      header: "Material Cost (NPR)",
       cell: ({ row }) => (
-        <span className="text-zinc-600 dark:text-zinc-400">
-          {formatNPR(Number(row.original.totalCost))}
+        <span className="font-medium text-purple-600 dark:text-purple-400">
+          {formatNumberOnly(row.original.totalCost)}
         </span>
       ),
     },
     {
       accessorKey: "totalBilled",
-      header: "Total Billed",
+      header: "Total Billed (NPR)",
       cell: ({ row }) => (
-        <span className="font-medium text-zinc-700 dark:text-zinc-300">
-          {formatNPR(Number(row.original.totalBilled))}
+        <span className="font-bold text-indigo-600 dark:text-indigo-400">
+          {formatNumberOnly(row.original.totalBilled)}
         </span>
       ),
     },
     {
       accessorKey: "grossProfit",
-      header: "Margin Profit",
+      header: "Margin Profit (NPR)",
       cell: ({ row }) => {
         const profit = Number(row.original.grossProfit);
         return (
-          <span className={profit >= 0 ? "font-semibold text-green-600" : "font-semibold text-red-600"}>
-            {formatNPR(profit)}
+          <span className={profit >= 0 ? "font-semibold text-emerald-600 dark:text-emerald-400" : "font-semibold text-rose-600 dark:text-rose-400"}>
+            {formatNumberOnly(profit)}
           </span>
         );
       },
@@ -162,7 +172,7 @@ export function ProjectsTable({ projects, onIssueSupply, onEdit }: ProjectsTable
                   onIssueSupply({
                     id: p.projectId,
                     name: p.projectName,
-                    clientId: p.projectId, // placeholder, will resolve in modal
+                    clientId: p.clientId,
                     clientName: p.clientName,
                   })
                 }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/DataTable";
-import { formatNPR } from "@/lib/utils";
+import { formatAmountOnly } from "@/lib/utils";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { OutstandingDueSchema } from "@/modules/sales/types";
 import { CustomerLedgerModal } from "./CustomerLedgerModal";
@@ -76,18 +76,18 @@ export function OutstandingDuesTable({ dues }: OutstandingDuesTableProps) {
     },
     {
       accessorKey: "totalBilled",
-      header: "Total Billed",
-      cell: ({ row }) => formatNPR(Number(row.original.totalBilled)),
+      header: "Total Billed (NPR)",
+      cell: ({ row }) => formatAmountOnly(Number(row.original.totalBilled)),
     },
     {
       accessorKey: "totalPaid",
-      header: "Total Paid",
-      cell: ({ row }) => formatNPR(Number(row.original.totalPaid)),
+      header: "Total Paid (NPR)",
+      cell: ({ row }) => formatAmountOnly(Number(row.original.totalPaid)),
     },
     {
       accessorKey: "balance",
-      header: "Balance",
-      cell: ({ row }) => <span className="font-semibold text-amber-600">{formatNPR(Number(row.original.balance))}</span>,
+      header: "Balance (NPR)",
+      cell: ({ row }) => <span className="font-semibold text-amber-600">{formatAmountOnly(Number(row.original.balance))}</span>,
     },
     {
       accessorKey: "lastInvoiceDate",
@@ -177,8 +177,8 @@ export function OutstandingDuesTable({ dues }: OutstandingDuesTableProps) {
                   <span className="text-xs text-zinc-500">{new Date(inv.invoiceDate).toLocaleDateString("en-IN")}</span>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="font-semibold text-sm text-amber-600">{formatNPR(Number(inv.balanceAmount))}</span>
-                  <span className="text-[10px] text-zinc-400">Total: {formatNPR(Number(inv.totalAmount))}</span>
+                  <span className="font-semibold text-sm text-amber-600">{formatAmountOnly(Number(inv.balanceAmount))}</span>
+                  <span className="text-[10px] text-zinc-400">Total: {formatAmountOnly(Number(inv.totalAmount))}</span>
                 </div>
               </Button>
             ))}
