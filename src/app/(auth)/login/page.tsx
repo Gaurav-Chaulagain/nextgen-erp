@@ -83,8 +83,8 @@ export default function LoginPage() {
           />
         </div>
 
-        {/* Copyright Footer (Aligned to the far right of this left section) */}
-        <div className="relative z-10 flex items-center gap-3 self-end">
+        {/* Copyright Footer (Aligned to the left of this left section) */}
+        <div className="relative z-10 flex items-center gap-3 self-start">
           <div className="shrink-0 flex items-center justify-center bg-white rounded-full h-8 w-8 p-1 shadow-sm border border-zinc-800/40">
             <img
               src="/logo.png"
