@@ -6,6 +6,12 @@ import { getSystemSettings, saveSystemSettings, BusinessInfo, InvoiceSettings } 
 import { revalidatePath } from "next/cache";
 import { getSettings, updateSettings } from '@/lib/settings';
 
+// Helper to sanitize objects (remove/convert Date types) for JSON fields in Prisma
+function serializeJson<T>(obj: T): any {
+  if (!obj) return null;
+  return JSON.parse(JSON.stringify(obj));
+}
+
 // Business Info Settings
 export async function saveBusinessInfoAction(data: BusinessInfo) {
   const user = await getCurrentUser();
@@ -84,47 +90,52 @@ export async function createWarehouseAction(data: {
   location?: string;
   description?: string;
 }) {
-  const user = await getCurrentUser();
-  if (!user || (user.role !== "SUPERADMIN" && user.role !== "OWNER" && user.role !== "MANAGER")) {
-    throw new Error("Access Denied. Only authorized personnel can manage warehouses.");
+  try {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== "SUPERADMIN" && user.role !== "OWNER" && user.role !== "MANAGER")) {
+      return { success: false, error: "Access Denied. Only authorized personnel can manage warehouses." };
+    }
+
+    if (!data.name.trim()) {
+      return { success: false, error: "Warehouse name is required." };
+    }
+
+    const db = await getDb();
+    const existing = await db.warehouse.findUnique({
+      where: { name: data.name.trim() },
+    });
+
+    if (existing) {
+      return { success: false, error: "A warehouse with this name already exists." };
+    }
+
+    const wh = await db.warehouse.create({
+      data: {
+        name: data.name.trim(),
+        location: data.location?.trim() || "",
+        description: data.description?.trim() || "",
+        isActive: true,
+      },
+    });
+
+    // Log Audit Log
+    await db.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "CREATE",
+        module: "WAREHOUSE",
+        recordId: wh.id,
+        newValues: serializeJson(wh),
+        ipAddress: "Server-Action",
+      },
+    });
+
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error in createWarehouseAction:", error);
+    return { success: false, error: error.message || "Failed to create warehouse." };
   }
-
-  if (!data.name.trim()) {
-    throw new Error("Warehouse name is required.");
-  }
-
-  const db = await getDb();
-  const existing = await db.warehouse.findUnique({
-    where: { name: data.name.trim() },
-  });
-
-  if (existing) {
-    throw new Error("A warehouse with this name already exists.");
-  }
-
-  const wh = await db.warehouse.create({
-    data: {
-      name: data.name.trim(),
-      location: data.location?.trim() || "",
-      description: data.description?.trim() || "",
-      isActive: true,
-    },
-  });
-
-  // Log Audit Log
-  await db.auditLog.create({
-    data: {
-      userId: user.id,
-      action: "CREATE",
-      module: "WAREHOUSE",
-      recordId: wh.id,
-      newValues: wh as any,
-      ipAddress: "Server-Action",
-    },
-  });
-
-  revalidatePath("/settings");
-  return { success: true };
 }
 
 export async function updateWarehouseAction(
@@ -136,109 +147,119 @@ export async function updateWarehouseAction(
     isActive: boolean;
   }
 ) {
-  const user = await getCurrentUser();
-  if (!user || (user.role !== "SUPERADMIN" && user.role !== "OWNER" && user.role !== "MANAGER")) {
-    throw new Error("Access Denied. Only authorized personnel can manage warehouses.");
+  try {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== "SUPERADMIN" && user.role !== "OWNER" && user.role !== "MANAGER")) {
+      return { success: false, error: "Access Denied. Only authorized personnel can manage warehouses." };
+    }
+
+    if (!data.name.trim()) {
+      return { success: false, error: "Warehouse name is required." };
+    }
+
+    const db = await getDb();
+    
+    // Verify name uniqueness among other warehouses
+    const existing = await db.warehouse.findFirst({
+      where: {
+        name: data.name.trim(),
+        id: { not: id },
+      },
+    });
+
+    if (existing) {
+      return { success: false, error: "Another warehouse with this name already exists." };
+    }
+
+    const oldWh = await db.warehouse.findUnique({ where: { id } });
+    
+    const updatedWh = await db.warehouse.update({
+      where: { id },
+      data: {
+        name: data.name.trim(),
+        location: data.location?.trim() || "",
+        description: data.description?.trim() || "",
+        isActive: data.isActive,
+      },
+    });
+
+    // Log Audit Log
+    await db.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "UPDATE",
+        module: "WAREHOUSE",
+        recordId: id,
+        oldValues: serializeJson(oldWh),
+        newValues: serializeJson(updatedWh),
+        ipAddress: "Server-Action",
+      },
+    });
+
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error in updateWarehouseAction:", error);
+    return { success: false, error: error.message || "Failed to update warehouse." };
   }
-
-  if (!data.name.trim()) {
-    throw new Error("Warehouse name is required.");
-  }
-
-  const db = await getDb();
-  
-  // Verify name uniqueness among other warehouses
-  const existing = await db.warehouse.findFirst({
-    where: {
-      name: data.name.trim(),
-      id: { not: id },
-    },
-  });
-
-  if (existing) {
-    throw new Error("Another warehouse with this name already exists.");
-  }
-
-  const oldWh = await db.warehouse.findUnique({ where: { id } });
-  
-  const updatedWh = await db.warehouse.update({
-    where: { id },
-    data: {
-      name: data.name.trim(),
-      location: data.location?.trim() || "",
-      description: data.description?.trim() || "",
-      isActive: data.isActive,
-    },
-  });
-
-  // Log Audit Log
-  await db.auditLog.create({
-    data: {
-      userId: user.id,
-      action: "UPDATE",
-      module: "WAREHOUSE",
-      recordId: id,
-      oldValues: oldWh as any,
-      newValues: updatedWh as any,
-      ipAddress: "Server-Action",
-    },
-  });
-
-  revalidatePath("/settings");
-  return { success: true };
 }
 
 export async function deleteWarehouseAction(id: string) {
-  const user = await getCurrentUser();
-  if (!user || (user.role !== "SUPERADMIN" && user.role !== "OWNER")) {
-    throw new Error("Access Denied. Only Super Admins and Business Owners can delete warehouses.");
-  }
-
-  const db = await getDb();
-  
-  // Fetch warehouse with related entities to check references
-  const wh = await db.warehouse.findUnique({
-    where: { id },
-    include: {
-      stockEntries: { take: 1 },
-      stockTransactions: { take: 1 },
-      salesItems: { take: 1 },
-      salesReturnItems: { take: 1 },
+  try {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== "SUPERADMIN" && user.role !== "OWNER")) {
+      return { success: false, error: "Access Denied. Only Super Admins and Business Owners can delete warehouses." };
     }
-  });
 
-  if (!wh) {
-    throw new Error("Warehouse not found.");
+    const db = await getDb();
+    
+    // Fetch warehouse with related entities to check references
+    const wh = await db.warehouse.findUnique({
+      where: { id },
+      include: {
+        stockEntries: { take: 1 },
+        stockTransactions: { take: 1 },
+        salesItems: { take: 1 },
+        salesReturnItems: { take: 1 },
+      }
+    });
+
+    if (!wh) {
+      return { success: false, error: "Warehouse not found." };
+    }
+
+    const hasRelations = 
+      wh.stockEntries.length > 0 ||
+      wh.stockTransactions.length > 0 ||
+      wh.salesItems.length > 0 ||
+      wh.salesReturnItems.length > 0;
+
+    if (hasRelations) {
+      return { success: false, error: "This warehouse is linked to existing stock records, invoices, or transactions. It cannot be hard-deleted. Please deactivate it instead." };
+    }
+
+    await db.warehouse.delete({
+      where: { id }
+    });
+
+    // Log Audit Log
+    await db.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "DELETE",
+        module: "WAREHOUSE",
+        recordId: id,
+        oldValues: serializeJson(wh),
+        ipAddress: "Server-Action",
+      },
+    });
+
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error in deleteWarehouseAction:", error);
+    return { success: false, error: error.message || "Failed to delete warehouse." };
   }
-
-  const hasRelations = 
-    wh.stockEntries.length > 0 ||
-    wh.stockTransactions.length > 0 ||
-    wh.salesItems.length > 0 ||
-    wh.salesReturnItems.length > 0;
-
-  if (hasRelations) {
-    throw new Error("This warehouse is linked to existing stock records, invoices, or transactions. It cannot be hard-deleted. Please deactivate it instead.");
-  }
-
-  await db.warehouse.delete({
-    where: { id }
-  });
-
-  // Log Audit Log
-  await db.auditLog.create({
-    data: {
-      userId: user.id,
-      action: "DELETE",
-      module: "WAREHOUSE",
-      recordId: id,
-      oldValues: wh as any,
-      ipAddress: "Server-Action",
-    },
-  });
-
-  revalidatePath("/settings");
-  return { success: true };
 }
 
 // Fiscal Year Actions
@@ -247,127 +268,137 @@ export async function createFiscalYearAction(data: {
   startDate: string;
   endDate: string;
 }) {
-  const user = await getCurrentUser();
-  if (!user || (user.role !== "SUPERADMIN" && user.role !== "OWNER")) {
-    throw new Error("Access Denied. Only Super Admins and Owners can manage fiscal periods.");
+  try {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== "SUPERADMIN" && user.role !== "OWNER")) {
+      return { success: false, error: "Access Denied. Only Super Admins and Owners can manage fiscal periods." };
+    }
+
+    if (!data.name.trim() || !data.startDate || !data.endDate) {
+      return { success: false, error: "All fiscal fields are required." };
+    }
+
+    const db = await getDb();
+    
+    const existing = await db.fiscalYear.findUnique({
+      where: { name: data.name.trim() },
+    });
+
+    if (existing) {
+      return { success: false, error: "A fiscal year with this name already exists." };
+    }
+
+    const fy = await db.fiscalYear.create({
+      data: {
+        name: data.name.trim(),
+        startDate: new Date(data.startDate),
+        endDate: new Date(data.endDate),
+        isCurrent: false,
+        isClosed: false,
+      },
+    });
+
+    // Log Audit Log
+    await db.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "CREATE",
+        module: "FISCAL_YEAR",
+        recordId: fy.id,
+        newValues: serializeJson(fy),
+        ipAddress: "Server-Action",
+      },
+    });
+
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error in createFiscalYearAction:", error);
+    return { success: false, error: error.message || "Failed to create fiscal period." };
   }
-
-  if (!data.name.trim() || !data.startDate || !data.endDate) {
-    throw new Error("All fiscal fields are required.");
-  }
-
-  const db = await getDb();
-  
-  const existing = await db.fiscalYear.findUnique({
-    where: { name: data.name.trim() },
-  });
-
-  if (existing) {
-    throw new Error("A fiscal year with this name already exists.");
-  }
-
-  const fy = await db.fiscalYear.create({
-    data: {
-      name: data.name.trim(),
-      startDate: new Date(data.startDate),
-      endDate: new Date(data.endDate),
-      isCurrent: false,
-      isClosed: false,
-    },
-  });
-
-  // Log Audit Log
-  await db.auditLog.create({
-    data: {
-      userId: user.id,
-      action: "CREATE",
-      module: "FISCAL_YEAR",
-      recordId: fy.id,
-      newValues: fy as any,
-      ipAddress: "Server-Action",
-    },
-  });
-
-  revalidatePath("/settings");
-  return { success: true };
 }
 
 export async function toggleFiscalYearStatusAction(id: string, action: "close" | "setCurrent" | "reopen") {
-  const user = await getCurrentUser();
-  if (!user || (user.role !== "SUPERADMIN" && user.role !== "OWNER")) {
-    throw new Error("Access Denied. Only Super Admins and Owners can modify fiscal periods.");
-  }
+  try {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== "SUPERADMIN" && user.role !== "OWNER")) {
+      return { success: false, error: "Access Denied. Only Super Admins and Owners can modify fiscal periods." };
+    }
 
-  const db = await getDb();
-  const oldFy = await db.fiscalYear.findUnique({ where: { id } });
-  if (!oldFy) {
-    throw new Error("Fiscal year record not found.");
-  }
+    const db = await getDb();
+    const oldFy = await db.fiscalYear.findUnique({ where: { id } });
+    if (!oldFy) {
+      return { success: false, error: "Fiscal year record not found." };
+    }
 
-  if (action === "close") {
-    const updatedFy = await db.fiscalYear.update({
-      where: { id },
-      data: { isClosed: true },
-    });
-
-    // Log Audit Log
-    await db.auditLog.create({
-      data: {
-        userId: user.id,
-        action: "UPDATE",
-        module: "FISCAL_YEAR",
-        recordId: id,
-        oldValues: oldFy as any,
-        newValues: updatedFy as any,
-        ipAddress: "Server-Action",
-      },
-    });
-  } else if (action === "reopen") {
-    const updatedFy = await db.fiscalYear.update({
-      where: { id },
-      data: { isClosed: false },
-    });
-
-    // Log Audit Log
-    await db.auditLog.create({
-      data: {
-        userId: user.id,
-        action: "UPDATE",
-        module: "FISCAL_YEAR",
-        recordId: id,
-        oldValues: oldFy as any,
-        newValues: updatedFy as any,
-        ipAddress: "Server-Action",
-      },
-    });
-  } else if (action === "setCurrent") {
-    // Transaction to safely set one current and unset others
-    await db.$transaction([
-      db.fiscalYear.updateMany({
-        where: { isCurrent: true },
-        data: { isCurrent: false },
-      }),
-      db.fiscalYear.update({
+    if (action === "close") {
+      const updatedFy = await db.fiscalYear.update({
         where: { id },
-        data: { isCurrent: true },
-      }),
-    ]);
+        data: { isClosed: true },
+      });
 
-    // Log Audit Log
-    await db.auditLog.create({
-      data: {
-        userId: user.id,
-        action: "UPDATE",
-        module: "FISCAL_YEAR",
-        recordId: id,
-        newValues: { message: `Set fiscal year ${oldFy.name} as current.` },
-        ipAddress: "Server-Action",
-      },
-    });
+      // Log Audit Log
+      await db.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "UPDATE",
+          module: "FISCAL_YEAR",
+          recordId: id,
+          oldValues: serializeJson(oldFy),
+          newValues: serializeJson(updatedFy),
+          ipAddress: "Server-Action",
+        },
+      });
+    } else if (action === "reopen") {
+      const updatedFy = await db.fiscalYear.update({
+        where: { id },
+        data: { isClosed: false },
+      });
+
+      // Log Audit Log
+      await db.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "UPDATE",
+          module: "FISCAL_YEAR",
+          recordId: id,
+          oldValues: serializeJson(oldFy),
+          newValues: serializeJson(updatedFy),
+          ipAddress: "Server-Action",
+        },
+      });
+    } else if (action === "setCurrent") {
+      // Transaction to safely set one current and unset others
+      await db.$transaction([
+        db.fiscalYear.updateMany({
+          where: { isCurrent: true },
+          data: { isCurrent: false },
+        }),
+        db.fiscalYear.update({
+          where: { id },
+          data: { isCurrent: true },
+        }),
+      ]);
+
+      // Log Audit Log
+      await db.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "UPDATE",
+          module: "FISCAL_YEAR",
+          recordId: id,
+          newValues: serializeJson({ message: `Set fiscal year ${oldFy.name} as current.` }),
+          ipAddress: "Server-Action",
+        },
+      });
+    }
+
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error in toggleFiscalYearStatusAction:", error);
+    return { success: false, error: error.message || "Failed to alter fiscal period context." };
   }
-
-  revalidatePath("/settings");
-  return { success: true };
 }
 
 // SUPERADMIN JSON Database Backup Export

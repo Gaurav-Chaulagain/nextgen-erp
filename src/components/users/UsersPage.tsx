@@ -79,6 +79,8 @@ export function UsersPage({ initialUsers, sessionUser }: UsersPageProps) {
         if (res.success) {
           toast.success("User deleted successfully.");
           handleRefresh();
+        } else {
+          toast.error(res.error || "Failed to delete user.");
         }
       } catch (err: any) {
         toast.error(err.message || "Failed to delete user.");

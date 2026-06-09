@@ -431,7 +431,7 @@ export async function getInvoiceFormLookups() {
     db.product.findMany({
       where: { isActive: true },
       include: {
-        variants: { where: { isActive: true }, orderBy: { effectiveDate: "desc" }, take: 1 },
+        variants: { where: { isActive: true }, orderBy: { effectiveDate: "desc" } },
         stockEntries: { include: { warehouse: true } },
       },
       orderBy: { name: "asc" },
@@ -462,15 +462,28 @@ export async function getInvoiceFormLookups() {
       })
     ),
     products: products.map((product) => {
-      const variant = product.variants[0];
+      let retailPrice = new Decimal(0);
+      let wholesalePrice = new Decimal(0);
+      let projectPrice = new Decimal(0);
+
+      product.variants.forEach((v) => {
+        const r = new Decimal(v.retailPrice);
+        const w = new Decimal(v.wholesalePrice);
+        const p = new Decimal(v.projectPrice);
+
+        if (r.gt(retailPrice)) retailPrice = r;
+        if (w.gt(wholesalePrice)) wholesalePrice = w;
+        if (p.gt(projectPrice)) projectPrice = p;
+      });
+
       return productOptionSchema.parse({
         id: product.id,
         code: product.code,
         name: product.name,
         unit: product.unit,
-        retailPrice: variant?.retailPrice.toString() ?? "0",
-        wholesalePrice: variant?.wholesalePrice.toString() ?? "0",
-        projectPrice: variant?.projectPrice.toString() ?? "0",
+        retailPrice: retailPrice.toString(),
+        wholesalePrice: wholesalePrice.toString(),
+        projectPrice: projectPrice.toString(),
         stockByWarehouse: product.stockEntries.map((stock) => ({
           warehouseId: stock.warehouseId,
           warehouseName: stock.warehouse.name,

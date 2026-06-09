@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useTransition } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatNPR, formatDate } from "@/lib/utils";
+import { formatAmountOnly, formatDate } from "@/lib/utils";
 import type { CustomerLedgerEntrySchema } from "@/modules/sales/types";
 import { fetchCustomerLedgerAction } from "@/modules/sales/actions";
 import { downloadLedgerPDF } from "@/lib/export/ledger-pdf";
@@ -149,9 +149,9 @@ export function CustomerLedgerModal({ open: openProp, onOpenChange, customerId, 
                 <th className="px-4 py-2.5">Date</th>
                 <th className="px-4 py-2.5">Description</th>
                 <th className="px-4 py-2.5">Channel</th>
-                <th className="px-4 py-2.5 text-right">Debit (Dr)</th>
-                <th className="px-4 py-2.5 text-right">Credit (Cr)</th>
-                <th className="px-4 py-2.5 text-right">Running Balance</th>
+                <th className="px-4 py-2.5 text-right">Debit (Dr) (NPR)</th>
+                <th className="px-4 py-2.5 text-right">Credit (Cr) (NPR)</th>
+                <th className="px-4 py-2.5 text-right">Running Balance (NPR)</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -170,13 +170,13 @@ export function CustomerLedgerModal({ open: openProp, onOpenChange, customerId, 
                       </span>
                     </td>
                     <td className="px-4 py-2 text-right font-medium text-red-600">
-                      {parseFloat(entry.debit) !== 0 ? formatNPR(parseFloat(entry.debit)) : "-"}
+                      {parseFloat(entry.debit) !== 0 ? formatAmountOnly(parseFloat(entry.debit)) : "-"}
                     </td>
                     <td className="px-4 py-2 text-right font-medium text-green-600">
-                      {parseFloat(entry.credit) !== 0 ? formatNPR(parseFloat(entry.credit)) : "-"}
+                      {parseFloat(entry.credit) !== 0 ? formatAmountOnly(parseFloat(entry.credit)) : "-"}
                     </td>
                     <td className="px-4 py-2 text-right font-bold text-zinc-900 dark:text-zinc-100">
-                      {formatNPR(parseFloat(entry.balance))}
+                      {formatAmountOnly(parseFloat(entry.balance))}
                     </td>
                   </tr>
                 ))

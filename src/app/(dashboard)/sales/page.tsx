@@ -8,7 +8,7 @@ import { OutstandingDuesTable } from "@/components/sales/OutstandingDuesTable";
 import { SalesStats } from "@/components/sales/SalesStats";
 import { CustomerListTable } from "@/components/sales/CustomerListTable";
 import { AddCustomerModal } from "@/components/sales/AddCustomerModal";
-import { formatNPR } from "@/lib/utils";
+import { formatAmountOnly } from "@/lib/utils";
 import { ReturnActions } from "@/components/sales/ReturnActions";
 import {
   getCustomers,
@@ -62,19 +62,19 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
         <Card className="border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40">
           <CardContent className="pt-2">
             <p className="text-sm font-medium text-blue-700 dark:text-blue-200">Retail Revenue</p>
-            <p className="mt-1 text-2xl font-semibold">{formatNPR(Number(revenueByChannel.retail))}</p>
+            <p className="mt-1 text-2xl font-semibold">{formatAmountOnly(Number(revenueByChannel.retail))}</p>
           </CardContent>
         </Card>
         <Card className="border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/40">
           <CardContent className="pt-2">
             <p className="text-sm font-medium text-green-700 dark:text-green-200">Wholesale Revenue</p>
-            <p className="mt-1 text-2xl font-semibold">{formatNPR(Number(revenueByChannel.wholesale))}</p>
+            <p className="mt-1 text-2xl font-semibold">{formatAmountOnly(Number(revenueByChannel.wholesale))}</p>
           </CardContent>
         </Card>
         <Card className="border border-purple-200 bg-purple-50 dark:border-purple-900 dark:bg-purple-950/40">
           <CardContent className="pt-2">
             <p className="text-sm font-medium text-purple-700 dark:text-purple-200">Project Revenue</p>
-            <p className="mt-1 text-2xl font-semibold">{formatNPR(Number(revenueByChannel.project))}</p>
+            <p className="mt-1 text-2xl font-semibold">{formatAmountOnly(Number(revenueByChannel.project))}</p>
           </CardContent>
         </Card>
       </div>
@@ -167,8 +167,8 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
                         <th className="px-3 py-1.5 text-left">Product Name</th>
                         <th className="px-3 py-1.5 text-left">Warehouse</th>
                         <th className="px-3 py-1.5 text-right">Qty</th>
-                        <th className="px-3 py-1.5 text-right">Rate</th>
-                        <th className="px-3 py-1.5 text-right">Total Price</th>
+                        <th className="px-3 py-1.5 text-right">Rate (NPR)</th>
+                        <th className="px-3 py-1.5 text-right">Total Price (NPR)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-red-100/20 font-medium">
@@ -177,8 +177,8 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
                           <td className="px-3 py-2 text-zinc-800 dark:text-zinc-200">{item.product?.name}</td>
                           <td className="px-3 py-2 text-zinc-500">{item.warehouse?.name}</td>
                           <td className="px-3 py-2 text-right">{item.qty}</td>
-                          <td className="px-3 py-2 text-right">{formatNPR(Number(item.unitPrice))}</td>
-                          <td className="px-3 py-2 text-right text-zinc-800 dark:text-zinc-200">{formatNPR(Number(item.totalPrice))}</td>
+                          <td className="px-3 py-2 text-right">{formatAmountOnly(Number(item.unitPrice))}</td>
+                          <td className="px-3 py-2 text-right text-zinc-800 dark:text-zinc-200">{formatAmountOnly(Number(item.totalPrice))}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -200,12 +200,12 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
                       <div className="text-right space-y-1 ml-auto font-medium text-zinc-600 dark:text-zinc-400">
                         {hasVat && (
                           <>
-                            <div>Subtotal: <span className="text-zinc-900 dark:text-zinc-100">{formatNPR(subtotal)}</span></div>
-                            <div>VAT ({originalVatPercent}%): <span className="text-zinc-900 dark:text-zinc-100">{formatNPR(vatAmount)}</span></div>
+                            <div>Subtotal: <span className="text-zinc-900 dark:text-zinc-100">{formatAmountOnly(subtotal)}</span></div>
+                            <div>VAT ({originalVatPercent}%): <span className="text-zinc-900 dark:text-zinc-100">{formatAmountOnly(vatAmount)}</span></div>
                           </>
                         )}
                         <div className="font-bold text-red-700 dark:text-red-300 text-sm pt-1">
-                          Total Credit: {formatNPR(totalAmount)}
+                          Total Credit: {formatAmountOnly(totalAmount)}
                         </div>
                       </div>
                     );

@@ -51,6 +51,27 @@ export function formatNPR(amount: Decimal | number): string {
 }
 
 /**
+ * Formats financial amounts without the currency prefix
+ * e.g., 142500.5 -> 1,42,500.50
+ */
+export function formatAmountOnly(amount: Decimal | number): string {
+  let val: number;
+  if (amount instanceof Decimal) {
+    val = amount.toNumber();
+  } else if (amount && typeof (amount as any).toNumber === "function") {
+    val = (amount as any).toNumber();
+  } else {
+    val = Number(amount) || 0;
+  }
+
+  const fixedVal = val.toFixed(2);
+  const parts = fixedVal.split(".");
+  const integerFormatted = formatNepaliNumber(Number(parts[0]));
+  
+  return `${integerFormatted}.${parts[1]}`;
+}
+
+/**
  * Generate Next Invoice Number
  * e.g. prefix = "INV", lastNumber = 5 -> "INV-0006"
  */

@@ -146,9 +146,9 @@ export function DepreciationScheduleModal({ open, onOpenChange, assetId }: Depre
                   <thead className="bg-zinc-50 dark:bg-zinc-900 border-b dark:border-zinc-800">
                     <tr>
                       <th className="p-3 font-bold text-zinc-500">Fiscal Year</th>
-                      <th className="p-3 font-bold text-zinc-500 text-right">Opening Book Value</th>
-                      <th className="p-3 font-bold text-zinc-500 text-right">Yearly Depreciation</th>
-                      <th className="p-3 font-bold text-zinc-500 text-right">Ending Book Value</th>
+                      <th className="p-3 font-bold text-zinc-500 text-right">Opening Book Value (NPR)</th>
+                      <th className="p-3 font-bold text-zinc-500 text-right">Yearly Depreciation (NPR)</th>
+                      <th className="p-3 font-bold text-zinc-500 text-right">Ending Book Value (NPR)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -156,13 +156,13 @@ export function DepreciationScheduleModal({ open, onOpenChange, assetId }: Depre
                       <tr key={idx} className="border-b dark:border-zinc-800 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50">
                         <td className="p-3 font-bold text-zinc-700 dark:text-zinc-300">{y.fiscalYear}</td>
                         <td className="p-3 text-right font-semibold text-zinc-600 dark:text-zinc-400">
-                          <NPRAmount amount={y.opening} />
+                          <NPRAmount amount={y.opening} showCurrency={false} />
                         </td>
                         <td className="p-3 text-right font-semibold text-rose-600 dark:text-rose-400">
-                          <NPRAmount amount={y.depreciation} />
+                          <NPRAmount amount={y.depreciation} showCurrency={false} />
                         </td>
                         <td className="p-3 text-right font-bold text-zinc-800 dark:text-zinc-200">
-                          <NPRAmount amount={y.closing} />
+                          <NPRAmount amount={y.closing} showCurrency={false} />
                         </td>
                       </tr>
                     ))}
@@ -180,9 +180,9 @@ export function DepreciationScheduleModal({ open, onOpenChange, assetId }: Depre
                     <tr>
                       <th className="p-3 font-bold text-zinc-500">Nepali Period</th>
                       <th className="p-3 font-bold text-zinc-500">Method Status</th>
-                      <th className="p-3 font-bold text-zinc-500 text-right">Valuation Prior</th>
-                      <th className="p-3 font-bold text-zinc-500 text-right">Depreciation</th>
-                      <th className="p-3 font-bold text-zinc-500 text-right">Valuation After</th>
+                      <th className="p-3 font-bold text-zinc-500 text-right">Valuation Prior (NPR)</th>
+                      <th className="p-3 font-bold text-zinc-500 text-right">Depreciation (NPR)</th>
+                      <th className="p-3 font-bold text-zinc-500 text-right">Valuation After (NPR)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -203,13 +203,13 @@ export function DepreciationScheduleModal({ open, onOpenChange, assetId }: Depre
                             </span>
                           </td>
                           <td className="p-3 text-right font-semibold">
-                            <NPRAmount amount={Number(e.bookValueBefore)} />
+                            <NPRAmount amount={Number(e.bookValueBefore)} showCurrency={false} />
                           </td>
                           <td className="p-3 text-right font-semibold text-rose-600 dark:text-rose-400">
-                            <NPRAmount amount={Number(e.amount)} />
+                            <NPRAmount amount={Number(e.amount)} showCurrency={false} />
                           </td>
                           <td className="p-3 text-right font-bold">
-                            <NPRAmount amount={Number(e.bookValueAfter)} />
+                            <NPRAmount amount={Number(e.bookValueAfter)} showCurrency={false} />
                           </td>
                         </tr>
                       );

@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
 function money(value: string | number) {
   const num = Number(value);
   const absVal = Math.abs(num).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return num < 0 ? `-NPR ${absVal}` : `NPR ${absVal}`;
+  return num < 0 ? `-${absVal}` : absVal;
 }
 
 export function CreditNotePDF({
@@ -273,8 +273,8 @@ export function CreditNotePDF({
         <View style={styles.tableHeader}>
           <Text style={styles.itemCol}>Product Description & Returns</Text>
           <Text style={styles.qtyCol}>Qty</Text>
-          <Text style={styles.priceCol}>Unit Price</Text>
-          <Text style={styles.totalCol}>Total Price</Text>
+          <Text style={styles.priceCol}>Unit Price (NPR)</Text>
+          <Text style={styles.totalCol}>Total Price (NPR)</Text>
         </View>
 
         {items.map((item, index) => {

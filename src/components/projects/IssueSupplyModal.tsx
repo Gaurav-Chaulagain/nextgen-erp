@@ -49,6 +49,13 @@ export function IssueSupplyModal({
   const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? "");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<LocalLineItem[]>([]);
+  const [applyVat, setApplyVat] = useState(true);
+  const [additionalExpenses, setAdditionalExpenses] = useState<Array<{
+    id: string;
+    type: "TRANSPORT" | "LABOUR" | "MISCELLANEOUS";
+    amount: number;
+    notes: string;
+  }>>([]);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -102,6 +109,44 @@ export function IssueSupplyModal({
     return items.reduce((sum, item) => sum + item.qty * item.unitPrice, 0);
   }, [items]);
 
+  const vatValue = useMemo(() => {
+    return applyVat ? totalCostValue * 0.13 : 0;
+  }, [totalCostValue, applyVat]);
+
+  const additionalExpensesSum = useMemo(() => {
+    return additionalExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  }, [additionalExpenses]);
+
+  const grandTotalValue = useMemo(() => {
+    return totalCostValue + vatValue + additionalExpensesSum;
+  }, [totalCostValue, vatValue, additionalExpensesSum]);
+
+  const addAdditionalExpense = () => {
+    setAdditionalExpenses((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        type: "TRANSPORT",
+        amount: 0,
+        notes: "",
+      },
+    ]);
+  };
+
+  const updateAdditionalExpense = (id: string, patch: Partial<{
+    type: "TRANSPORT" | "LABOUR" | "MISCELLANEOUS";
+    amount: number;
+    notes: string;
+  }>) => {
+    setAdditionalExpenses((current) =>
+      current.map((exp) => (exp.id === id ? { ...exp, ...patch } : exp))
+    );
+  };
+
+  const removeAdditionalExpense = (id: string) => {
+    setAdditionalExpenses((current) => current.filter((exp) => exp.id !== id));
+  };
+
   const handleSubmit = () => {
     setError("");
     if (!warehouseId) {
@@ -136,6 +181,12 @@ export function IssueSupplyModal({
         unitPrice: Number(item.unitPrice),
         notes: item.notes || undefined,
       })),
+      applyVat,
+      additionalExpenses: additionalExpenses.map((exp) => ({
+        type: exp.type,
+        amount: Number(exp.amount),
+        notes: exp.notes || undefined,
+      })),
     };
 
     // Client-side Zod validation
@@ -157,6 +208,8 @@ export function IssueSupplyModal({
         onOpenChange(false);
         setItems([]);
         setNotes("");
+        setAdditionalExpenses([]);
+        setApplyVat(true);
         router.refresh();
       } catch (err: any) {
         const errMsg = err.message || "Failed to dispatch supplies.";
@@ -309,19 +362,115 @@ export function IssueSupplyModal({
             )}
           </div>
 
+          {/* Additional Expenses Section */}
+          <div className="border rounded-xl p-4 bg-zinc-50/20 divide-y divide-zinc-100 dark:divide-zinc-800">
+            <div className="flex justify-between items-center pb-3">
+              <h3 className="text-xs font-bold text-zinc-400 tracking-wider uppercase">Additional Project Expenses</h3>
+              <Button variant="outline" size="sm" onClick={addAdditionalExpense} disabled={!warehouseId}>
+                + Add Expense
+              </Button>
+            </div>
+
+            {additionalExpenses.length === 0 ? (
+              <p className="text-xs text-zinc-500 text-center py-4">No additional expenses added yet</p>
+            ) : (
+              <div className="space-y-3 pt-3">
+                {additionalExpenses.map((exp) => (
+                  <div key={exp.id} className="grid grid-cols-12 gap-3 items-end pb-3 sm:pb-0">
+                    <div className="col-span-12 sm:col-span-4">
+                      <label className="text-[10px] text-zinc-500 block mb-0.5">Expense Type *</label>
+                      <select
+                        value={exp.type}
+                        onChange={(e) => updateAdditionalExpense(exp.id, { type: e.target.value as any })}
+                        className="w-full border rounded-md px-3 py-1.5 text-xs bg-white dark:bg-zinc-950"
+                      >
+                        <option value="TRANSPORT">Transport Cost</option>
+                        <option value="LABOUR">Labour Cost</option>
+                        <option value="MISCELLANEOUS">Miscellaneous Cost</option>
+                      </select>
+                    </div>
+
+                    <div className="col-span-12 sm:col-span-3">
+                      <label className="text-[10px] text-zinc-500 block mb-0.5">Amount (NPR) *</label>
+                      <Input
+                        type="number"
+                        value={exp.amount}
+                        min={0}
+                        onChange={(e) => updateAdditionalExpense(exp.id, { amount: Math.max(0, parseFloat(e.target.value) || 0) })}
+                        className="h-8 text-xs"
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div className="col-span-12 sm:col-span-4">
+                      <label className="text-[10px] text-zinc-500 block mb-0.5">Notes (Labour names, Vehicle No, etc.)</label>
+                      <Input
+                        placeholder="e.g. Vehicle BA-3-PA-1234, names of labourers..."
+                        value={exp.notes}
+                        onChange={(e) => updateAdditionalExpense(exp.id, { notes: e.target.value })}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+
+                    <div className="col-span-12 sm:col-span-1 flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => removeAdditionalExpense(exp.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Running Totals Visual */}
-          <div className="border rounded-xl p-4 bg-zinc-50/50 dark:bg-zinc-900 border-dashed space-y-1.5 text-sm">
-            <div className="flex justify-between">
-              <span className="text-zinc-500">Material Cost Value (Taxable):</span>
+          <div className="border rounded-xl p-4 bg-zinc-50/50 dark:bg-zinc-900 border-dashed space-y-2 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-zinc-500">Items Subtotal (Material Cost):</span>
               <span className="font-semibold">{formatNPR(totalCostValue)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-zinc-500">Project standard VAT (13%):</span>
-              <span className="font-semibold">{formatNPR(totalCostValue * 0.13)}</span>
+
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="applyVatCheckbox"
+                  checked={applyVat}
+                  onChange={(e) => setApplyVat(e.target.checked)}
+                  className="h-4 w-4 rounded border-zinc-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                />
+                <label htmlFor="applyVatCheckbox" className="text-zinc-500 cursor-pointer select-none text-xs font-medium">
+                  Apply 13% VAT
+                </label>
+              </div>
+              <span className="font-semibold">{formatNPR(vatValue)}</span>
             </div>
+
+            {additionalExpenses.length > 0 && (
+              <div className="border-t pt-2 space-y-1.5">
+                <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Additional Costs Breakdown</div>
+                {additionalExpenses.map((exp) => {
+                  const typeLabel = exp.type === "TRANSPORT" ? "Transport" : exp.type === "LABOUR" ? "Labour" : "Misc";
+                  return (
+                    <div key={exp.id} className="flex justify-between text-xs">
+                      <span className="text-zinc-500">
+                        • {typeLabel} Cost{exp.notes ? ` (${exp.notes})` : ""}:
+                      </span>
+                      <span className="font-medium text-zinc-700 dark:text-zinc-300">{formatNPR(exp.amount)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <div className="flex justify-between border-t pt-2 font-bold text-base text-zinc-900 dark:text-zinc-50">
-              <span>Total Billings Raised (Ledger Debit):</span>
-              <span className="text-purple-600 dark:text-purple-400">{formatNPR(totalCostValue * 1.13)}</span>
+              <span>Grand Total (Ledger Debit):</span>
+              <span className="text-purple-600 dark:text-purple-400">{formatNPR(grandTotalValue)}</span>
             </div>
           </div>
 

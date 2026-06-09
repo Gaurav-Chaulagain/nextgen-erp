@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatNPR } from "@/lib/utils";
+import { formatNepaliNumber } from "@/lib/utils";
 import type { ProjectProfitabilitySchema } from "@/modules/projects/types";
 import { FileText, Download, Calculator } from "lucide-react";
 
@@ -18,6 +18,12 @@ export function ProjectProfitabilityReport({ projects }: ProjectProfitabilityRep
 
   const handleLaborCostChange = (projectId: string, cost: number) => {
     setLaborCosts((prev) => ({ ...prev, [projectId]: cost }));
+  };
+
+  const formatNumberOnly = (amount: number | string) => {
+    const val = Number(amount) || 0;
+    const parts = val.toFixed(2).split(".");
+    return `${formatNepaliNumber(Number(parts[0]))}.${parts[1]}`;
   };
 
   const handlePrint = () => {
@@ -36,12 +42,12 @@ export function ProjectProfitabilityReport({ projects }: ProjectProfitabilityRep
           <td style="padding: 8px; font-family: monospace;">${p.projectCode}</td>
           <td style="padding: 8px; font-weight: bold;">${p.projectName}</td>
           <td style="padding: 8px;">${p.clientName}</td>
-          <td style="padding: 8px; text-align: right;">${formatNPR(Number(p.contractAmount))}</td>
-          <td style="padding: 8px; text-align: right;">${formatNPR(Number(p.totalBilled))}</td>
-          <td style="padding: 8px; text-align: right;">${formatNPR(Number(p.totalCost))}</td>
-          <td style="padding: 8px; text-align: right;">${formatNPR(labor)}</td>
+          <td style="padding: 8px; text-align: right;">${formatNumberOnly(Number(p.contractAmount))}</td>
+          <td style="padding: 8px; text-align: right;">${formatNumberOnly(Number(p.totalBilled))}</td>
+          <td style="padding: 8px; text-align: right;">${formatNumberOnly(Number(p.totalCost))}</td>
+          <td style="padding: 8px; text-align: right;">${formatNumberOnly(labor)}</td>
           <td style="padding: 8px; text-align: right; font-weight: bold; color: ${profit >= 0 ? "#15803d" : "#b91c1c"};">
-            ${formatNPR(profit)}
+            ${formatNumberOnly(profit)}
           </td>
           <td style="padding: 8px; text-align: right; font-weight: bold; color: ${margin >= 20 ? "#15803d" : margin >= 10 ? "#b45309" : "#b91c1c"};">
             ${margin.toFixed(1)}%
@@ -85,11 +91,11 @@ export function ProjectProfitabilityReport({ projects }: ProjectProfitabilityRep
                 <th>Code</th>
                 <th>Project Name</th>
                 <th>Client</th>
-                <th style="text-align: right;">Contract</th>
-                <th style="text-align: right;">Billed (Rev)</th>
-                <th style="text-align: right;">Material Cost</th>
-                <th style="text-align: right;">Labor Cost</th>
-                <th style="text-align: right;">Gross Profit</th>
+                <th style="text-align: right;">Contract (NPR)</th>
+                <th style="text-align: right;">Billed (Rev) (NPR)</th>
+                <th style="text-align: right;">Material Cost (NPR)</th>
+                <th style="text-align: right;">Labor Cost (NPR)</th>
+                <th style="text-align: right;">Gross Profit (NPR)</th>
                 <th style="text-align: right;">Net Margin</th>
               </tr>
             </thead>
@@ -97,12 +103,12 @@ export function ProjectProfitabilityReport({ projects }: ProjectProfitabilityRep
               ${rowsHtml}
               <tr style="border-top: 2px solid #18181b; background-color: #fafafa; font-weight: bold; font-size: 11px;">
                 <td colspan="3" style="padding: 10px 8px;">CUMULATIVE TOTALS</td>
-                <td style="padding: 10px 8px; text-align: right;">${formatNPR(totalContract)}</td>
-                <td style="padding: 10px 8px; text-align: right;">${formatNPR(totalBilled)}</td>
-                <td style="padding: 10px 8px; text-align: right;">${formatNPR(totalMatCost)}</td>
-                <td style="padding: 10px 8px; text-align: right;">${formatNPR(totalLabor)}</td>
+                <td style="padding: 10px 8px; text-align: right;">${formatNumberOnly(totalContract)}</td>
+                <td style="padding: 10px 8px; text-align: right;">${formatNumberOnly(totalBilled)}</td>
+                <td style="padding: 10px 8px; text-align: right;">${formatNumberOnly(totalMatCost)}</td>
+                <td style="padding: 10px 8px; text-align: right;">${formatNumberOnly(totalLabor)}</td>
                 <td style="padding: 10px 8px; text-align: right; color: ${cumulativeProfit >= 0 ? "#15803d" : "#b91c1c"};">
-                  ${formatNPR(cumulativeProfit)}
+                  ${formatNumberOnly(cumulativeProfit)}
                 </td>
                 <td style="padding: 10px 8px; text-align: right; color: ${cumulativeMargin >= 20 ? "#15803d" : cumulativeMargin >= 10 ? "#b45309" : "#b91c1c"};">
                   ${cumulativeMargin.toFixed(1)}%
@@ -139,11 +145,11 @@ export function ProjectProfitabilityReport({ projects }: ProjectProfitabilityRep
               <TableHead className="font-bold">Code</TableHead>
               <TableHead className="font-bold">Project</TableHead>
               <TableHead className="font-bold">Client</TableHead>
-              <TableHead className="text-right font-bold">Contract</TableHead>
-              <TableHead className="text-right font-bold">Billed (Rev)</TableHead>
-              <TableHead className="text-right font-bold">Mat. Cost</TableHead>
-              <TableHead className="text-right font-bold w-32">Labor Cost *</TableHead>
-              <TableHead className="text-right font-bold">Gross Profit</TableHead>
+              <TableHead className="text-right font-bold">Contract (NPR)</TableHead>
+              <TableHead className="text-right font-bold">Billed (Rev) (NPR)</TableHead>
+              <TableHead className="text-right font-bold">Mat. Cost (NPR)</TableHead>
+              <TableHead className="text-right font-bold w-32">Labor Cost * (NPR)</TableHead>
+              <TableHead className="text-right font-bold">Gross Profit (NPR)</TableHead>
               <TableHead className="text-right font-bold">Net Margin</TableHead>
             </TableRow>
           </TableHeader>
@@ -160,21 +166,27 @@ export function ProjectProfitabilityReport({ projects }: ProjectProfitabilityRep
                   <TableCell className="font-mono">{p.projectCode}</TableCell>
                   <TableCell className="font-semibold text-zinc-900 dark:text-zinc-50">{p.projectName}</TableCell>
                   <TableCell className="text-zinc-500">{p.clientName}</TableCell>
-                  <TableCell className="text-right">{formatNPR(Number(p.contractAmount))}</TableCell>
-                  <TableCell className="text-right font-medium">{formatNPR(Number(p.totalBilled))}</TableCell>
-                  <TableCell className="text-right text-purple-600 font-medium">{formatNPR(matCost)}</TableCell>
+                  <TableCell className="text-right font-semibold text-blue-600 dark:text-blue-400">
+                    {formatNumberOnly(p.contractAmount)}
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-indigo-600 dark:text-indigo-400">
+                    {formatNumberOnly(p.totalBilled)}
+                  </TableCell>
+                  <TableCell className="text-right text-purple-600 dark:text-purple-400 font-medium">
+                    {formatNumberOnly(matCost)}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Input
                       type="number"
                       placeholder="0.00"
                       value={labor || ""}
                       onChange={(e) => handleLaborCostChange(p.projectId, parseFloat(e.target.value) || 0)}
-                      className="h-8 text-xs text-right"
+                      className="h-8 text-xs text-right text-amber-600 dark:text-amber-400 font-medium"
                       min={0}
                     />
                   </TableCell>
-                  <TableCell className={`text-right font-bold ${profit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600"}`}>
-                    {formatNPR(profit)}
+                  <TableCell className={`text-right font-bold ${profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600"}`}>
+                    {formatNumberOnly(profit)}
                   </TableCell>
                   <TableCell className="text-right">
                     <span

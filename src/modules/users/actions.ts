@@ -14,66 +14,67 @@ export async function createUserAction(formData: {
   role: Role;
   isActive: boolean;
 }) {
-  const sessionUser = await getCurrentUser();
+  try {
+    const sessionUser = await getCurrentUser();
 
-  if (!sessionUser) {
-    throw new Error("Unauthorized. Please log in.");
-  }
+    if (!sessionUser) {
+      return { success: false, error: "Unauthorized. Please log in." };
+    }
 
-  if (sessionUser.role !== "SUPERADMIN" && sessionUser.role !== "OWNER") {
-    throw new Error("Access Denied. Only Super Admins and Business Owners can manage users.");
-  }
+    if (sessionUser.role !== "SUPERADMIN" && sessionUser.role !== "OWNER") {
+      return { success: false, error: "Access Denied. Only Super Admins and Business Owners can manage users." };
+    }
 
-  if (!formData.name || !formData.email || !formData.role) {
-    throw new Error("Missing required fields.");
-  }
+    if (!formData.name || !formData.email || !formData.role) {
+      return { success: false, error: "Missing required fields." };
+    }
 
-  const db = await getDb();
+    const db = await getDb();
 
-  // Check if email already exists
-  const existingUser = await db.user.findUnique({
-    where: { email: formData.email.trim().toLowerCase() },
-  });
+    // Check if email already exists
+    const existingUser = await db.user.findUnique({
+      where: { email: formData.email.trim().toLowerCase() },
+    });
 
-  if (existingUser) {
-    throw new Error("A user with this email address already exists.");
-  }
+    if (existingUser) {
+      return { success: false, error: "A user with this email address already exists." };
+    }
 
-  // Hash password
-  const rawPassword = formData.password || "Temp@123";
-  const passwordHash = await bcrypt.hash(rawPassword, 10);
+    // Hash password
+    const rawPassword = formData.password || "Temp@123";
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
 
-  const newUser = await db.user.create({
-    data: {
-      name: formData.name.trim(),
-      email: formData.email.trim().toLowerCase(),
-      phone: formData.phone?.trim() || null,
-      passwordHash,
-      role: formData.role,
-      isActive: formData.isActive,
-    },
-  });
-
-  // Log audit trail
-  await db.auditLog.create({
-    data: {
-      userId: sessionUser.id,
-      action: "CREATE",
-      module: "USER",
-      recordId: newUser.id,
-      newValues: {
-        id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role,
-        isActive: newUser.isActive,
+    const newUser = await db.user.create({
+      data: {
+        name: formData.name.trim(),
+        email: formData.email.trim().toLowerCase(),
+        phone: formData.phone?.trim() || null,
+        passwordHash,
+        role: formData.role,
+        isActive: formData.isActive,
       },
-      ipAddress: "Server-Action",
-    },
-  });
+    });
 
-  // Simulate welcome email print to console
-  console.log(`
+    // Log audit trail
+    await db.auditLog.create({
+      data: {
+        userId: sessionUser.id,
+        action: "CREATE",
+        module: "USER",
+        recordId: newUser.id,
+        newValues: {
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role,
+          isActive: newUser.isActive,
+        },
+        ipAddress: "Server-Action",
+      },
+    });
+
+    // Simulate welcome email print to console
+    console.log(`
 ======================================================================
 📧 WELCOME EMAIL SIMULATOR (STAGING)
 To: ${newUser.name} <${newUser.email}>
@@ -89,10 +90,14 @@ Password: ${rawPassword}
 Access link: http://localhost:3000/login
 Please change your password immediately upon your first login.
 ======================================================================
-  `);
+    `);
 
-  revalidatePath("/users");
-  return { success: true, userId: newUser.id };
+    revalidatePath("/users");
+    return { success: true, userId: newUser.id };
+  } catch (error: any) {
+    console.error("Error in createUserAction:", error);
+    return { success: false, error: error.message || "Failed to create user account." };
+  }
 }
 
 export async function updateUserAction(
@@ -169,79 +174,84 @@ export async function updateUserAction(
 }
 
 export async function deleteUserAction(userId: string) {
-  const sessionUser = await getCurrentUser();
+  try {
+    const sessionUser = await getCurrentUser();
 
-  if (!sessionUser) {
-    throw new Error("Unauthorized. Please log in.");
-  }
-
-  if (sessionUser.role !== "SUPERADMIN" && sessionUser.role !== "OWNER") {
-    throw new Error("Access Denied. Only Super Admins and Business Owners can delete users.");
-  }
-
-  if (sessionUser.id === userId) {
-    throw new Error("Security Guardrail: You cannot delete your own active session account.");
-  }
-
-  const db = await getDb();
-
-  // Find if user exists and fetch relations to check constraints
-  const targetUser = await db.user.findUnique({
-    where: { id: userId },
-    include: {
-      purchaseOrders: { take: 1 },
-      salesInvoices: { take: 1 },
-      projects: { take: 1 },
-      payments: { take: 1 },
-      ledgerEntries: { take: 1 },
-      cashBookEntries: { take: 1 },
-      expenses: { take: 1 },
+    if (!sessionUser) {
+      return { success: false, error: "Unauthorized. Please log in." };
     }
-  });
 
-  if (!targetUser) {
-    throw new Error("User account not found.");
-  }
-
-  const hasRelations = 
-    targetUser.purchaseOrders.length > 0 ||
-    targetUser.salesInvoices.length > 0 ||
-    targetUser.projects.length > 0 ||
-    targetUser.payments.length > 0 ||
-    targetUser.ledgerEntries.length > 0 ||
-    targetUser.cashBookEntries.length > 0 ||
-    targetUser.expenses.length > 0;
-
-  if (hasRelations) {
-    throw new Error("This user has active operational records (sales, purchases, expenses, or ledgers) linked to their account. They cannot be hard-deleted. Please deactivate their account instead to preserve audit history.");
-  }
-
-  // Safe delete: delete associated password resets and audit logs first, then user
-  await db.$transaction([
-    db.passwordResetToken.deleteMany({ where: { userId } }),
-    db.auditLog.deleteMany({ where: { userId } }),
-    db.user.delete({ where: { id: userId } }),
-  ]);
-
-  // Log in active session's audit log
-  await db.auditLog.create({
-    data: {
-      userId: sessionUser.id,
-      action: "DELETE",
-      module: "USER",
-      recordId: userId,
-      oldValues: {
-        id: targetUser.id,
-        name: targetUser.name,
-        email: targetUser.email,
-        role: targetUser.role,
-      },
-      ipAddress: "Server-Action",
+    if (sessionUser.role !== "SUPERADMIN" && sessionUser.role !== "OWNER") {
+      return { success: false, error: "Access Denied. Only Super Admins and Business Owners can delete users." };
     }
-  });
 
-  revalidatePath("/users");
-  return { success: true };
+    if (sessionUser.id === userId) {
+      return { success: false, error: "Security Guardrail: You cannot delete your own active session account." };
+    }
+
+    const db = await getDb();
+
+    // Find if user exists and fetch relations to check constraints
+    const targetUser = await db.user.findUnique({
+      where: { id: userId },
+      include: {
+        purchaseOrders: { take: 1 },
+        salesInvoices: { take: 1 },
+        projects: { take: 1 },
+        payments: { take: 1 },
+        ledgerEntries: { take: 1 },
+        cashBookEntries: { take: 1 },
+        expenses: { take: 1 },
+      }
+    });
+
+    if (!targetUser) {
+      return { success: false, error: "User account not found." };
+    }
+
+    const hasRelations = 
+      targetUser.purchaseOrders.length > 0 ||
+      targetUser.salesInvoices.length > 0 ||
+      targetUser.projects.length > 0 ||
+      targetUser.payments.length > 0 ||
+      targetUser.ledgerEntries.length > 0 ||
+      targetUser.cashBookEntries.length > 0 ||
+      targetUser.expenses.length > 0;
+
+    if (hasRelations) {
+      return { success: false, error: "This user has active operational records (sales, purchases, expenses, or ledgers) linked to their account. They cannot be hard-deleted. Please deactivate their account instead to preserve audit history." };
+    }
+
+    // Safe delete: delete associated password resets and audit logs first, then user
+    await db.$transaction([
+      db.passwordResetToken.deleteMany({ where: { userId } }),
+      db.auditLog.deleteMany({ where: { userId } }),
+      db.user.delete({ where: { id: userId } }),
+    ]);
+
+    // Log in active session's audit log
+    await db.auditLog.create({
+      data: {
+        userId: sessionUser.id,
+        action: "DELETE",
+        module: "USER",
+        recordId: userId,
+        oldValues: {
+          id: targetUser.id,
+          name: targetUser.name,
+          email: targetUser.email,
+          role: targetUser.role,
+        },
+        ipAddress: "Server-Action",
+      }
+    });
+
+    revalidatePath("/users");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error in deleteUserAction:", error);
+    return { success: false, error: error.message || "Failed to delete user." };
+  }
 }
 
 export async function fetchAuditLogsAction(filters: import("./queries").AuditLogFilters) {

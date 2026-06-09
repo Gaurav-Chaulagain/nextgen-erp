@@ -1,6 +1,31 @@
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import type { PrismaClient } from "../generated/prisma/client";
+import dns from "dns";
+
+// Helper to resolve host to IP address using dns.promises.resolve4 (async/non-blocking)
+async function resolveDbUrlHost(url: string | undefined): Promise<string | undefined> {
+  if (!url) return url;
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname;
+    // Don't resolve localhost or numeric IPs
+    if (hostname === "localhost" || hostname === "127.0.0.1" || /^[0-9.]+$/.test(hostname)) {
+      return url;
+    }
+    
+    const ips = await dns.promises.resolve4(hostname).catch(() => [] as string[]);
+    if (ips && ips.length > 0) {
+      // Pick a random IP to load balance slightly
+      const ip = ips[Math.floor(Math.random() * ips.length)];
+      parsed.hostname = ip;
+      return parsed.toString();
+    }
+  } catch (err) {
+    console.warn("Failed to resolve database host to IP, using original URL:", err);
+  }
+  return url;
+}
 
 // Helper to dynamically append sslmode=no-verify and sslaccept=accept_invalid_certs to connection strings in production
 function appendSslMode(url: string | undefined): string | undefined {
@@ -54,7 +79,11 @@ function cleanConnectionString(url: string | undefined): string | undefined {
 
 async function createPrismaClient(): Promise<PrismaClient> {
   const { PrismaClient } = await import("../generated/prisma/client");
-  const rawConnectionString = process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL;
+  let rawConnectionString = process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL;
+  
+  // Pre-resolve database hostname to an IP address asynchronously to prevent getaddrinfo EAI_AGAIN errors
+  rawConnectionString = await resolveDbUrlHost(rawConnectionString);
+  
   const isLocalhost = rawConnectionString?.includes("localhost") || rawConnectionString?.includes("127.0.0.1");
 
   const connectionString = cleanConnectionString(rawConnectionString);

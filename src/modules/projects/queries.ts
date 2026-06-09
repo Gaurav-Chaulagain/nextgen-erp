@@ -318,6 +318,7 @@ export async function getProjectProfitability(projectId?: string) {
         projectId: p.id,
         projectCode: p.projectCode,
         projectName: p.name,
+        clientId: p.clientId,
         clientName: p.client.name,
         status: p.status,
         contractAmount: p.contractAmount.toString(),
@@ -398,7 +399,13 @@ export async function getProjectLookups() {
   const db = await getDb();
 
   const [clients, products, warehouses] = await Promise.all([
-    db.customer.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    db.customer.findMany({ 
+      where: { 
+        isActive: true,
+        customerType: "PROJECT"
+      }, 
+      orderBy: { name: "asc" } 
+    }),
     db.product.findMany({
       where: { isActive: true },
       include: {

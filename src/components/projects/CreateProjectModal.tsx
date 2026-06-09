@@ -28,6 +28,8 @@ export function CreateProjectModal({ open, onOpenChange, clients, project = null
   const [budgetAmount, setBudgetAmount] = useState(0);
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("PLANNING");
+  const [advanceAmount, setAdvanceAmount] = useState(0);
+  const [advancePaymentMethod, setAdvancePaymentMethod] = useState("CASH");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -43,6 +45,8 @@ export function CreateProjectModal({ open, onOpenChange, clients, project = null
       setBudgetAmount(Number(project.budgetAmount) || Number(project.contractAmount) || 0);
       setNotes(project.notes || "");
       setStatus(project.status || "PLANNING");
+      setAdvanceAmount(0);
+      setAdvancePaymentMethod("CASH");
     } else {
       setName("");
       setClientId("");
@@ -53,6 +57,8 @@ export function CreateProjectModal({ open, onOpenChange, clients, project = null
       setBudgetAmount(0);
       setNotes("");
       setStatus("PLANNING");
+      setAdvanceAmount(0);
+      setAdvancePaymentMethod("CASH");
     }
   }, [project, open]);
 
@@ -69,6 +75,8 @@ export function CreateProjectModal({ open, onOpenChange, clients, project = null
       budgetAmount: budgetAmount > 0 ? Number(budgetAmount) : Number(contractAmount),
       notes: notes || undefined,
       status: project ? status : "PLANNING",
+      advanceAmount: Number(advanceAmount),
+      advancePaymentMethod,
     };
 
     // Client-side Zod validation
@@ -132,11 +140,13 @@ export function CreateProjectModal({ open, onOpenChange, clients, project = null
                 className="w-full border rounded-md px-3 py-2 text-sm bg-white dark:bg-zinc-950"
               >
                 <option value="">-- Select Client --</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.customerType})
-                  </option>
-                ))}
+                {clients
+                  .filter((c) => c.customerType === "PROJECT")
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
               </select>
             </div>
             <div>
@@ -202,6 +212,35 @@ export function CreateProjectModal({ open, onOpenChange, clients, project = null
               </div>
             )}
           </div>
+
+          {!project && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium block mb-1">Advance Amount Received (NPR)</label>
+                <Input
+                  type="number"
+                  placeholder="Advance payment received"
+                  value={advanceAmount || ""}
+                  onChange={(e) => setAdvanceAmount(parseFloat(e.target.value) || 0)}
+                  min={0}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">Advance Payment Method</label>
+                <select
+                  value={advancePaymentMethod}
+                  onChange={(e) => setAdvancePaymentMethod(e.target.value)}
+                  className="w-full border rounded-md px-3 py-2 text-sm bg-white dark:bg-zinc-950"
+                >
+                  <option value="CASH">Cash</option>
+                  <option value="BANK">Bank Transfer</option>
+                  <option value="CHEQUE">Cheque</option>
+                  <option value="ESEWA">eSewa</option>
+                  <option value="KHALTI">Khalti</option>
+                </select>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="text-sm font-medium block mb-1">Scope / Description</label>

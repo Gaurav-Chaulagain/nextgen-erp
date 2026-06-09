@@ -57,51 +57,124 @@ export async function createInventoryItem(data: CreateInventoryItemInput, userId
   const db = await getDb();
   const activeUserId = await resolveUserId(db, userId);
 
+  const trimmedName = parsed.name.trim();
+
+  // Find existing product by matching category, brand, and case-insensitive name
+  const existingProduct = await db.product.findFirst({
+    where: {
+      categoryId: parsed.categoryId,
+      brandId: parsed.brandId,
+      name: { equals: trimmedName, mode: 'insensitive' },
+      isActive: true,
+    },
+  });
+
   const code = `ITM-${Date.now().toString().slice(-6)}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
 
-  // Perform creation in a single transaction for atomicity
+  // Perform creation/update in a single transaction for atomicity
   const result = await db.$transaction(async (tx) => {
-    const product = await tx.product.create({
-      data: {
-        code,
-        name: parsed.name,
-        categoryId: parsed.categoryId,
-        brandId: parsed.brandId,
-        unit: parsed.unit,
-        description: parsed.description,
-        minStockLevel: parsed.minStockLevel,
-        reorderLevel: parsed.reorderLevel,
-        images: [],
-      },
-    });
+    let product = existingProduct;
+    let isNewProduct = false;
 
-    // create variants if provided
+    if (!product) {
+      isNewProduct = true;
+      product = await tx.product.create({
+        data: {
+          code,
+          name: parsed.name.trim(),
+          categoryId: parsed.categoryId,
+          brandId: parsed.brandId,
+          unit: parsed.unit,
+          description: parsed.description,
+          minStockLevel: parsed.minStockLevel,
+          reorderLevel: parsed.reorderLevel,
+          images: [],
+        },
+      });
+    }
+
+    // create/update variants if provided
     if (parsed.variants && parsed.variants.length) {
       for (const v of parsed.variants) {
-        await tx.productVariant.create({
-          data: {
+        // Check if an active variant for this supplier already exists on the product
+        const existingVariant = isNewProduct ? null : await tx.productVariant.findFirst({
+          where: {
             productId: product.id,
             supplierId: v.supplierId,
-            purchasePrice: new Decimal(v.purchasePrice),
-            retailPrice: new Decimal(v.retailPrice),
-            wholesalePrice: new Decimal(v.wholesalePrice),
-            projectPrice: new Decimal(v.projectPrice),
-            effectiveDate: v.effectiveDate ? new Date(v.effectiveDate) : new Date(),
-            isActive: v.isActive ?? true,
-            createdAt: new Date(),
+            isActive: true,
+          },
+        });
+
+        if (existingVariant) {
+          // Update the prices for this supplier variant
+          await tx.productVariant.update({
+            where: { id: existingVariant.id },
+            data: {
+              purchasePrice: new Decimal(v.purchasePrice),
+              retailPrice: new Decimal(v.retailPrice),
+              wholesalePrice: new Decimal(v.wholesalePrice),
+              projectPrice: new Decimal(v.projectPrice),
+              effectiveDate: v.effectiveDate ? new Date(v.effectiveDate) : new Date(),
+            },
+          });
+        } else {
+          // Create a new supplier variant
+          await tx.productVariant.create({
+            data: {
+              productId: product.id,
+              supplierId: v.supplierId,
+              purchasePrice: new Decimal(v.purchasePrice),
+              retailPrice: new Decimal(v.retailPrice),
+              wholesalePrice: new Decimal(v.wholesalePrice),
+              projectPrice: new Decimal(v.projectPrice),
+              effectiveDate: v.effectiveDate ? new Date(v.effectiveDate) : new Date(),
+              isActive: v.isActive ?? true,
+              createdAt: new Date(),
+            },
+          });
+        }
+      }
+    }
+
+    // Upsert inventory stock
+    let stock;
+    if (isNewProduct) {
+      stock = await tx.inventoryStock.create({
+        data: {
+          productId: product.id,
+          warehouseId: parsed.warehouseId,
+          quantity: parsed.quantity,
+          reservedQty: 0,
+        },
+      });
+    } else {
+      const existingStock = await tx.inventoryStock.findUnique({
+        where: {
+          productId_warehouseId: {
+            productId: product.id,
+            warehouseId: parsed.warehouseId,
+          },
+        },
+      });
+
+      if (existingStock) {
+        stock = await tx.inventoryStock.update({
+          where: { id: existingStock.id },
+          data: {
+            quantity: existingStock.quantity + parsed.quantity,
+          },
+        });
+      } else {
+        stock = await tx.inventoryStock.create({
+          data: {
+            productId: product.id,
+            warehouseId: parsed.warehouseId,
+            quantity: parsed.quantity,
+            reservedQty: 0,
           },
         });
       }
     }
-
-    const stock = await tx.inventoryStock.create({
-      data: {
-        productId: product.id,
-        warehouseId: parsed.warehouseId,
-        quantity: parsed.quantity,
-        reservedQty: 0,
-      },
-    });
 
     const warehouse = await tx.warehouse.findUnique({ where: { id: parsed.warehouseId } });
 
@@ -111,10 +184,12 @@ export async function createInventoryItem(data: CreateInventoryItemInput, userId
         productId: product.id,
         warehouseId: parsed.warehouseId,
         quantity: parsed.quantity,
-        unitCost: new Decimal(0),
+        unitCost: parsed.variants && parsed.variants[0] ? new Decimal(parsed.variants[0].purchasePrice) : new Decimal(0),
         referenceType: 'INVENTORY_INIT',
         referenceId: stock.id,
-        notes: parsed.quantity > 0 ? 'Initial stock allocation' : 'Created item with zero opening stock',
+        notes: isNewProduct
+          ? (parsed.quantity > 0 ? 'Initial stock allocation' : 'Created item with zero opening stock')
+          : `Grouped duplicate purchase: stock added to master product`,
         userId: activeUserId,
       },
     });
@@ -122,7 +197,7 @@ export async function createInventoryItem(data: CreateInventoryItemInput, userId
     await tx.auditLog.create({
       data: {
         userId: activeUserId,
-        action: 'CREATE',
+        action: isNewProduct ? 'CREATE' : 'UPDATE',
         module: 'INVENTORY',
         recordId: product.id,
         newValues: {
@@ -131,6 +206,8 @@ export async function createInventoryItem(data: CreateInventoryItemInput, userId
             code: product.code,
             name: product.name,
             quantity: stock.quantity,
+            isGroupedConsolidation: !isNewProduct,
+            addedQty: parsed.quantity,
           },
         },
       },

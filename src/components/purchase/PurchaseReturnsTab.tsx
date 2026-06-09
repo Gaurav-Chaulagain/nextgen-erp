@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { createPurchaseReturn } from "@/modules/purchase/actions";
-import { formatDate, formatNPR } from "@/lib/utils";
+import { formatDate, formatAmountOnly } from "@/lib/utils";
 import { toast } from "sonner";
 import { RefreshCcw, Plus, Trash2, Eye, Clipboard, ArrowLeftRight } from "lucide-react";
 
@@ -84,15 +84,30 @@ export function PurchaseReturnsTab({ returns: initialReturns, userId }: Purchase
     }
   }, [open]);
 
+  // Reset items when supplier changes to prevent invalid product selection
+  useEffect(() => {
+    setItems([]);
+  }, [supplierId]);
+
+  // Filter products by checking if they are active and have a pricing variant for the selected supplier
+  const filteredProducts = products.filter((p) =>
+    p.variants && p.variants.some((v: any) => v.supplierId === supplierId)
+  );
+
   const addItem = () => {
-    if (products.length === 0) return;
+    if (filteredProducts.length === 0) return;
+    const defaultProd = filteredProducts[0];
+    const defaultPrice = parseFloat(
+      defaultProd.variants.find((v: any) => v.supplierId === supplierId)?.purchasePrice || "0"
+    );
+
     setItems([
       ...items,
       {
-        productId: products[0].id,
+        productId: defaultProd.id,
         qty: 1,
-        unitPrice: 0
-      }
+        unitPrice: defaultPrice,
+      },
     ]);
   };
 
@@ -165,7 +180,7 @@ export function PurchaseReturnsTab({ returns: initialReturns, userId }: Purchase
               <th className="px-4 py-3 text-left font-semibold">Date</th>
               <th className="px-4 py-3 text-left font-semibold">PRN #</th>
               <th className="px-4 py-3 text-left font-semibold">Supplier</th>
-              <th className="px-4 py-3 text-right font-semibold">Total Value</th>
+              <th className="px-4 py-3 text-right font-semibold">Total Value (NPR)</th>
               <th className="px-4 py-3 text-center font-semibold">Status</th>
               <th className="px-4 py-3 text-center font-semibold">Actions</th>
             </tr>
@@ -177,7 +192,7 @@ export function PurchaseReturnsTab({ returns: initialReturns, userId }: Purchase
                   <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">{formatDate(r.returnDate)}</td>
                   <td className="px-4 py-3 font-mono font-bold text-orange-600 dark:text-orange-400">{r.returnNumber}</td>
                   <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-50">{r.supplier.name}</td>
-                  <td className="px-4 py-3 text-right font-bold text-zinc-950 dark:text-zinc-50">{formatNPR(Number(r.totalAmount))}</td>
+                  <td className="px-4 py-3 text-right font-bold text-zinc-950 dark:text-zinc-50">{formatAmountOnly(Number(r.totalAmount))}</td>
                   <td className="px-4 py-3 text-center">
                     <Badge className="bg-orange-950/40 text-orange-400 border border-orange-900/40 px-2 py-0.5 rounded-full font-medium">
                       {r.status}
@@ -257,7 +272,7 @@ export function PurchaseReturnsTab({ returns: initialReturns, userId }: Purchase
                   variant="outline"
                   size="sm"
                   onClick={addItem}
-                  disabled={!supplierId}
+                  disabled={!supplierId || filteredProducts.length === 0}
                   className="border-zinc-250 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"
                 >
                   <Plus size={14} className="mr-1" /> Add Return Line
@@ -267,6 +282,10 @@ export function PurchaseReturnsTab({ returns: initialReturns, userId }: Purchase
               {!supplierId ? (
                 <div className="text-center py-8 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-50/20 dark:bg-zinc-950/20">
                   <p className="text-sm text-zinc-500 italic">Please select a supplier first to add return items</p>
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="text-center py-8 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-50/20 dark:bg-zinc-950/20">
+                  <p className="text-sm text-amber-600 dark:text-amber-500 italic">This supplier has no purchased products registered in inventory.</p>
                 </div>
               ) : items.length === 0 ? (
                 <div className="text-center py-8 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-50/20 dark:bg-zinc-950/20">
@@ -280,10 +299,17 @@ export function PurchaseReturnsTab({ returns: initialReturns, userId }: Purchase
                         <label className="text-[10px] font-semibold text-zinc-500 block mb-1">Product *</label>
                         <select
                           value={item.productId}
-                          onChange={(e) => updateItem(index, { productId: e.target.value })}
+                          onChange={(e) => {
+                            const newProductId = e.target.value;
+                            const prod = filteredProducts.find((p) => p.id === newProductId);
+                            const price = parseFloat(
+                              prod?.variants?.find((v: any) => v.supplierId === supplierId)?.purchasePrice || "0"
+                            );
+                            updateItem(index, { productId: newProductId, unitPrice: price });
+                          }}
                           className="w-full h-9 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs text-zinc-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
                         >
-                          {products.map((p) => (
+                          {filteredProducts.map((p) => (
                             <option key={p.id} value={p.id}>
                               [{p.code}] {p.name}
                             </option>
@@ -333,7 +359,7 @@ export function PurchaseReturnsTab({ returns: initialReturns, userId }: Purchase
             <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 bg-zinc-50/50 dark:bg-zinc-900/30 border-dashed space-y-1 text-sm">
               <div className="flex justify-between font-bold text-base text-zinc-800 dark:text-zinc-100">
                 <span>Estimated Ledger Debit Deductions:</span>
-                <span className="text-orange-600 dark:text-orange-500">{formatNPR(totalReturnAmt)}</span>
+                <span className="text-orange-600 dark:text-orange-500">{formatAmountOnly(totalReturnAmt)}</span>
               </div>
             </div>
           </div>
@@ -404,8 +430,8 @@ export function PurchaseReturnsTab({ returns: initialReturns, userId }: Purchase
                       <tr className="bg-zinc-50 dark:bg-zinc-900/60 border-b border-zinc-200 dark:border-zinc-800 text-left font-semibold text-zinc-500 dark:text-zinc-400">
                         <th className="p-3.5">Product Item</th>
                         <th className="p-3.5 text-right">Returned Qty</th>
-                        <th className="p-3.5 text-right">Unit Price</th>
-                        <th className="p-3.5 text-right">Total Refund</th>
+                        <th className="p-3.5 text-right">Unit Price (NPR)</th>
+                        <th className="p-3.5 text-right">Total Refund (NPR)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-200 dark:divide-zinc-850 bg-white dark:bg-zinc-950/20">
@@ -416,8 +442,8 @@ export function PurchaseReturnsTab({ returns: initialReturns, userId }: Purchase
                             <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{item.product.code}</div>
                           </td>
                           <td className="p-3.5 text-right font-medium text-zinc-800 dark:text-zinc-200">{item.qty} {item.product.unit}</td>
-                          <td className="p-3.5 text-right">{formatNPR(Number(item.unitPrice))}</td>
-                          <td className="p-3.5 text-right font-bold text-orange-600 dark:text-orange-500">{formatNPR(Number(item.totalPrice))}</td>
+                          <td className="p-3.5 text-right">{formatAmountOnly(Number(item.unitPrice))}</td>
+                          <td className="p-3.5 text-right font-bold text-orange-600 dark:text-orange-500">{formatAmountOnly(Number(item.totalPrice))}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -434,7 +460,7 @@ export function PurchaseReturnsTab({ returns: initialReturns, userId }: Purchase
                 <div className="col-span-2 bg-orange-50 dark:bg-orange-950/10 p-4 rounded-xl border border-orange-200 dark:border-orange-900/20 h-fit space-y-1.5">
                   <div className="flex justify-between font-bold text-sm text-orange-600 dark:text-orange-400">
                     <span>Total Debit Credit Note:</span>
-                    <span>{formatNPR(Number(selectedReturn.totalAmount))}</span>
+                    <span>{formatAmountOnly(Number(selectedReturn.totalAmount))}</span>
                   </div>
                   <p className="text-[10px] text-zinc-600 dark:text-zinc-400">This amount has been successfully debited from the supplier ledger payable balance.</p>
                 </div>

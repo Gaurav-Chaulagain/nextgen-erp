@@ -13,10 +13,12 @@ import { ReceiveGoodsModal } from "./ReceiveGoodsModal";
 import { RecordPaymentModal } from "./RecordPaymentModal";
 import { SupplierLedgerModal } from "./SupplierLedgerModal";
 import { EditPurchaseOrderModal } from "./EditPurchaseOrderModal";
+import { POPurchaseReturnModal } from "./POPurchaseReturnModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { formatDate, formatNPR } from "@/lib/utils";
-import { Eye, CheckSquare, BookOpen, XCircle, ShoppingBag, CreditCard, Pencil, Trash2, Loader2, Send } from "lucide-react";
+import { formatDate, formatNPR, formatAmountOnly } from "@/lib/utils";
+import { Eye, CheckSquare, BookOpen, XCircle, ShoppingBag, CreditCard, Pencil, Trash2, Loader2, Send, Download, RotateCcw } from "lucide-react";
 import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
+import { generatePOPDF } from "@/lib/po-pdf";
 
 interface PurchaseOrderTableProps {
   orders: PurchaseOrderSchema[];
@@ -30,7 +32,9 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
   const [showPay, setShowPay] = useState(false);
   const [showLedger, setShowLedger] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
+  const [showReturn, setShowReturn] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
 
   // Edit & Delete State
   const [showEdit, setShowEdit] = useState(false);
@@ -93,6 +97,26 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
       toast.error(err.message || "Failed to delete Purchase Order");
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!selectedPO) return;
+    setPdfDownloading(true);
+    try {
+      const blob = await generatePOPDF(selectedPO);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${selectedPO.poNumber}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success("Purchase Order PDF downloaded successfully.");
+    } catch (err) {
+      console.error("Failed to generate PDF", err);
+      toast.error("Failed to download PDF");
+    } finally {
+      setPdfDownloading(false);
     }
   };
 
@@ -217,6 +241,20 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
             </Button>
           )}
 
+          {["ORDERED", "PARTIAL", "RECEIVED"].includes(row.original.status) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedPO(row.original);
+                setShowReturn(true);
+              }}
+              className="h-8 border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 gap-1 rounded-md text-xs font-semibold"
+            >
+              <RotateCcw size={13} /> Return
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -310,6 +348,16 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
         />
       )}
 
+      {/* POPurchaseReturnModal */}
+      {selectedPO && showReturn && (
+        <POPurchaseReturnModal
+          open={showReturn}
+          onOpenChange={setShowReturn}
+          po={selectedPO}
+          userId={userId}
+        />
+      )}
+
       {/* Clean Premium Light-Themed Purchase Order Detail Dialog */}
       <Dialog open={showDetail} onOpenChange={setShowDetail}>
         <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-y-auto bg-white border border-zinc-200 text-zinc-900 rounded-2xl shadow-xl">
@@ -329,137 +377,197 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
             </DialogDescription>
           </DialogHeader>
 
-          {selectedPO && (
-            <div className="flex-grow space-y-6 py-4">
-              {/* Vendor & General Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 rounded-xl border border-zinc-200 bg-zinc-50/60 shadow-sm">
-                <div>
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">Supplier Background</h4>
-                  <div className="text-sm font-bold text-zinc-800">{selectedPO.supplierName}</div>
-                  {selectedPO.supplierPanNumber && (
-                    <div className="text-xs text-zinc-650 font-mono mt-0.5">PAN: {selectedPO.supplierPanNumber}</div>
-                  )}
-                  {selectedPO.supplierPhone && (
-                    <div className="text-xs text-zinc-650 mt-0.5">Phone: {selectedPO.supplierPhone}</div>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-0.5">Order Date</h4>
-                    <div className="text-sm font-semibold text-zinc-800"><DualDateDisplay date={selectedPO.orderDate} /></div>
+          {selectedPO && (() => {
+            const isReceived = ["PARTIAL", "RECEIVED"].includes(selectedPO.status);
+            return (
+              <>
+                <div className="flex-grow space-y-6 py-4">
+                  {/* Vendor & General Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 rounded-xl border border-zinc-200 bg-zinc-50/60 shadow-sm">
+                    <div>
+                      <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">Supplier Background</h4>
+                      <div className="text-sm font-bold text-zinc-800">{selectedPO.supplierName}</div>
+                      {selectedPO.supplierPanNumber && (
+                        <div className="text-xs text-zinc-650 font-mono mt-0.5">PAN: {selectedPO.supplierPanNumber}</div>
+                      )}
+                      {selectedPO.supplierPhone && (
+                        <div className="text-xs text-zinc-650 mt-0.5">Phone: {selectedPO.supplierPhone}</div>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-0.5">Order Date</h4>
+                        <div className="text-sm font-semibold text-zinc-800"><DualDateDisplay date={selectedPO.orderDate} /></div>
+                      </div>
+                      <div>
+                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-0.5">Expected Delivery</h4>
+                        <div className="text-sm font-semibold text-zinc-800">
+                          {selectedPO.status === "RECEIVED" && selectedPO.expectedDate ? (
+                            <DualDateDisplay date={selectedPO.expectedDate} />
+                          ) : (
+                            ""
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-0.5">Expected Delivery</h4>
-                    <div className="text-sm font-semibold text-zinc-800">{selectedPO.expectedDate ? <DualDateDisplay date={selectedPO.expectedDate} /> : "—"}</div>
-                  </div>
-                </div>
-              </div>
 
-              {/* Items Section */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Ordered Materials & Financial Lines</h4>
-                <div className="border border-zinc-200 rounded-xl overflow-hidden shadow-sm">
-                  <table className="w-full text-sm text-zinc-800 bg-white">
-                    <thead>
-                      <tr className="bg-zinc-50 border-b border-zinc-200 text-left font-semibold text-zinc-500">
-                        <th className="p-3.5">Product Item</th>
-                        <th className="p-3.5 text-right">Ordered Qty</th>
-                        <th className="p-3.5 text-right">Received Qty</th>
-                        <th className="p-3.5 text-right">Unit Price</th>
-                        <th className="p-3.5 text-right">Line Total</th>
-                        <th className="p-3.5 text-right">Status</th>
-                        <th className="p-3.5">Notes</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-200 bg-white">
-                      {selectedPO.items.map((item) => {
-                        const isComplete = item.receivedQty >= item.orderedQty;
-                        return (
-                          <tr key={item.id} className="hover:bg-zinc-50/50">
-                            <td className="p-3.5">
-                              <div className="font-semibold text-zinc-900">{item.productName}</div>
-                              <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{item.productCode}</div>
-                            </td>
-                            <td className="p-3.5 text-right font-medium text-zinc-700">{item.orderedQty} {item.productUnit}</td>
-                            <td className="p-3.5 text-right">
-                              <span className={isComplete ? "text-emerald-600 font-bold" : "text-amber-600 font-medium"}>
-                                {item.receivedQty} {item.productUnit}
-                              </span>
-                            </td>
-                            <td className="p-3.5 text-right font-medium text-zinc-700">
-                              {formatNPR(parseFloat(item.unitPrice))}
-                            </td>
-                            <td className="p-3.5 text-right font-semibold text-zinc-900">
-                              {formatNPR(parseFloat(item.totalPrice))}
-                            </td>
-                            <td className="p-3.5 text-right">
-                              <Badge className={isComplete ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none text-[10px]" : "bg-amber-50 text-amber-700 border border-amber-200 shadow-none text-[10px]"}>
-                                {isComplete ? "FULLY RECEIVED" : "PENDING"}
-                              </Badge>
-                            </td>
-                            <td className="p-3.5 text-zinc-500 max-w-xs truncate">{item.notes || "—"}</td>
+                  {/* Items Section */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Ordered Materials & Financial Lines</h4>
+                    <div className="border border-zinc-200 rounded-xl overflow-hidden shadow-sm">
+                      <table className="w-full text-sm text-zinc-800 bg-white">
+                        <thead>
+                          <tr className="bg-zinc-50 border-b border-zinc-200 text-left font-semibold text-zinc-500">
+                            <th className="p-3.5">Product Item</th>
+                            <th className="p-3.5 text-right">Ordered Qty</th>
+                            {isReceived && <th className="p-3.5 text-right">Received Qty</th>}
+                            <th className="p-3.5 text-right">Unit Price (NPR)</th>
+                            <th className="p-3.5 text-right">Line Total (NPR)</th>
+                            {isReceived && (
+                              <>
+                                <th className="p-3.5 text-right">Status</th>
+                                <th className="p-3.5">Notes</th>
+                              </>
+                            )}
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Financial Summaries & Remarks Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Remarks/Notes */}
-                <div className="md:col-span-2 bg-zinc-50/60 p-4 rounded-xl border border-zinc-200 h-full flex flex-col justify-between">
-                  <div>
-                    <h5 className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Procurement Instructions</h5>
-                    <p className="text-xs text-zinc-700 whitespace-pre-wrap">{selectedPO.notes || "No special procurement instructions provided."}</p>
-                  </div>
-                </div>
-
-                {/* Totals Section */}
-                <div className="bg-zinc-50/60 p-4 rounded-xl border border-zinc-200 space-y-2 text-sm shadow-sm">
-                  <div className="flex justify-between text-zinc-600">
-                    <span>Subtotal:</span>
-                    <span className="font-medium text-zinc-800">{formatNPR(parseFloat(selectedPO.subtotal))}</span>
-                  </div>
-                  {parseFloat(selectedPO.discountAmount) > 0 && (
-                    <div className="flex justify-between text-red-650">
-                      <span>Discount:</span>
-                      <span className="font-medium">- {formatNPR(parseFloat(selectedPO.discountAmount))}</span>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-200 bg-white">
+                          {selectedPO.items.map((item) => {
+                            const isComplete = item.receivedQty >= item.orderedQty;
+                            return (
+                              <tr key={item.id} className="hover:bg-zinc-50/50">
+                                <td className="p-3.5">
+                                  <div className="font-semibold text-zinc-900">{item.productName}</div>
+                                  <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{item.productCode}</div>
+                                </td>
+                                <td className="p-3.5 text-right font-medium text-zinc-700">{item.orderedQty} {item.productUnit}</td>
+                                {isReceived && (
+                                  <td className="p-3.5 text-right">
+                                    <span className={isComplete ? "text-emerald-600 font-bold" : "text-amber-600 font-medium"}>
+                                      {item.receivedQty} {item.productUnit}
+                                    </span>
+                                  </td>
+                                )}
+                                <td className="p-3.5 text-right font-medium text-zinc-700">
+                                  {isReceived ? formatAmountOnly(parseFloat(item.unitPrice)) : ""}
+                                </td>
+                                <td className="p-3.5 text-right font-semibold text-zinc-900">
+                                  {isReceived ? formatAmountOnly(parseFloat(item.totalPrice)) : ""}
+                                </td>
+                                {isReceived && (
+                                  <>
+                                    <td className="p-3.5 text-right">
+                                      <Badge className={isComplete ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-none text-[10px]" : "bg-amber-50 text-amber-700 border border-amber-200 shadow-none text-[10px]"}>
+                                        {isComplete ? "FULLY RECEIVED" : "PENDING"}
+                                      </Badge>
+                                    </td>
+                                    <td className="p-3.5 text-zinc-500 max-w-xs truncate">{item.notes || "—"}</td>
+                                  </>
+                                )}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
-                  {parseFloat(selectedPO.taxAmount) > 0 && (
-                    <div className="flex justify-between text-zinc-650">
-                      <span>VAT (13%):</span>
-                      <span className="font-medium">+ {formatNPR(parseFloat(selectedPO.taxAmount))}</span>
+                  </div>
+
+                  {/* Financial Summaries & Remarks Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Remarks/Notes */}
+                    <div className="md:col-span-2">
+                      {isReceived && (
+                        <div className="bg-zinc-50/60 p-4 rounded-xl border border-zinc-200 h-full flex flex-col justify-between">
+                          <div>
+                            <h5 className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Procurement Instructions</h5>
+                            <p className="text-xs text-zinc-700 whitespace-pre-wrap">{selectedPO.notes || "No special procurement instructions provided."}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                  <div className="flex justify-between text-sm font-bold border-t border-zinc-200 pt-2 text-zinc-900">
-                    <span>Total Amount:</span>
-                    <span>{formatNPR(parseFloat(selectedPO.totalAmount))}</span>
-                  </div>
-                  <div className="flex justify-between text-xs text-zinc-500">
-                    <span>Paid Amount:</span>
-                    <span>{formatNPR(parseFloat(selectedPO.paidAmount))}</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-bold border-t border-zinc-200 pt-2 text-orange-600">
-                    <span>Balance Due:</span>
-                    <span>{formatNPR(parseFloat(selectedPO.balance))}</span>
+
+                    {/* Totals Section */}
+                    <div className="bg-zinc-50/60 p-4 rounded-xl border border-zinc-200 space-y-2 text-sm shadow-sm">
+                      <div className="flex justify-between border-b border-zinc-200 pb-2 text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                        <span>Summary</span>
+                        <span>Amount (NPR)</span>
+                      </div>
+                      
+                      <div className="flex justify-between text-zinc-600">
+                        <span>Subtotal:</span>
+                        <span className="font-medium text-zinc-800">
+                          {isReceived ? formatAmountOnly(parseFloat(selectedPO.subtotal)) : ""}
+                        </span>
+                      </div>
+                      {parseFloat(selectedPO.discountAmount) > 0 && (
+                        <div className="flex justify-between text-red-650">
+                          <span>Discount:</span>
+                          <span className="font-medium">
+                            {isReceived ? `- ${formatAmountOnly(parseFloat(selectedPO.discountAmount))}` : ""}
+                          </span>
+                        </div>
+                      )}
+                      {parseFloat(selectedPO.taxAmount) > 0 && (
+                        <div className="flex justify-between text-zinc-650">
+                          <span>VAT (13%):</span>
+                          <span className="font-medium">
+                            {isReceived ? `+ ${formatAmountOnly(parseFloat(selectedPO.taxAmount))}` : ""}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm font-bold border-t border-zinc-200 pt-2 text-zinc-900">
+                        <span>Total Amount:</span>
+                        <span>
+                          {isReceived ? formatAmountOnly(parseFloat(selectedPO.totalAmount)) : ""}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs text-zinc-500">
+                        <span>Paid Amount:</span>
+                        <span>
+                          {isReceived ? formatAmountOnly(parseFloat(selectedPO.paidAmount)) : ""}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm font-bold border-t border-zinc-200 pt-2 text-orange-600">
+                        <span>Balance Due:</span>
+                        <span>
+                          {isReceived ? formatAmountOnly(parseFloat(selectedPO.balance)) : ""}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
 
-          <DialogFooter className="border-t border-zinc-200 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setShowDetail(false)}
-              className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 shadow-sm"
-            >
-              Close Details
-            </Button>
-          </DialogFooter>
+                <DialogFooter className="border-t border-zinc-200 pt-4 flex gap-2 justify-end w-full">
+                  <Button
+                    variant="outline"
+                    onClick={handleDownloadPDF}
+                    disabled={pdfDownloading}
+                    className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100/70 shadow-sm font-semibold flex items-center gap-2"
+                  >
+                    {pdfDownloading ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Download size={13} />
+                        Download PDF
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowDetail(false)}
+                    className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 shadow-sm font-semibold"
+                  >
+                    Close Details
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

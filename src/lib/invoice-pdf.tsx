@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
 function money(value: string | number) {
   const num = Number(value);
   const absVal = Math.abs(num).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return num < 0 ? `-NPR ${absVal}` : `NPR ${absVal}`;
+  return num < 0 ? `-${absVal}` : absVal;
 }
 
 interface InvoicePDFProps {
@@ -199,8 +199,8 @@ export function InvoicePDF({
         <View style={styles.tableHeader}>
           <Text style={styles.item}>Item & Returns Description</Text>
           <Text style={styles.qty}>Qty</Text>
-          <Text style={styles.amount}>Rate</Text>
-          <Text style={styles.amount}>Total</Text>
+          <Text style={styles.amount}>Rate (NPR)</Text>
+          <Text style={styles.amount}>Total (NPR)</Text>
         </View>
         {invoice.items.map((item) => {
           const retInfo = returnsByProduct.get(item.productId);

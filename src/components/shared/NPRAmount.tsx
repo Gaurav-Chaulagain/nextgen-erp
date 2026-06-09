@@ -1,5 +1,5 @@
 import React from "react";
-import { formatNPR } from "../../lib/utils";
+import { formatNPR, formatAmountOnly } from "../../lib/utils";
 import { Decimal } from "decimal.js";
 
 interface NPRAmountProps {
@@ -7,9 +7,10 @@ interface NPRAmountProps {
   className?: string;
   highlightColor?: boolean;
   showSign?: boolean;
+  showCurrency?: boolean;
 }
 
-export function NPRAmount({ amount, className = "", highlightColor = false, showSign = false }: NPRAmountProps) {
+export function NPRAmount({ amount, className = "", highlightColor = false, showSign = false, showCurrency = true }: NPRAmountProps) {
   let numericVal = 0;
   if (amount instanceof Decimal) {
     numericVal = amount.toNumber();
@@ -19,7 +20,7 @@ export function NPRAmount({ amount, className = "", highlightColor = false, show
     numericVal = Number(amount) || 0;
   }
 
-  const formatted = formatNPR(amount);
+  const formatted = showCurrency ? formatNPR(amount) : formatAmountOnly(amount);
   
   let colorClass = "";
   if (highlightColor) {

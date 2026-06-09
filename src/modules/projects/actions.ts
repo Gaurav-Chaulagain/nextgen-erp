@@ -94,13 +94,66 @@ export async function createProject(data: CreateProjectInput, userId?: string) {
       include: { client: true },
     });
 
+    const advanceAmount = parsed.advanceAmount ? toDecimal(parsed.advanceAmount) : new Decimal(0);
+    if (advanceAmount.greaterThan(0)) {
+      const paymentMethod = parsed.advancePaymentMethod || "CASH";
+
+      await tx.payment.create({
+        data: {
+          referenceType: "PROJECT",
+          referenceId: project.id,
+          partyType: "CUSTOMER",
+          partyId: project.clientId,
+          amount: advanceAmount,
+          paymentMethod,
+          paymentDate: new Date(),
+          notes: parsed.notes || `Advance payment received on project initialization for ${project.name}`,
+          createdBy,
+        },
+      });
+
+      await tx.cashBookEntry.create({
+        data: {
+          entryDate: new Date(),
+          type: "RECEIVED",
+          amount: advanceAmount,
+          description: `Advance payment received for project: ${project.name} (${project.projectCode})`,
+          partyType: "CUSTOMER",
+          partyId: project.clientId,
+          referenceType: "PROJECT",
+          referenceId: project.id,
+          paymentMethod,
+          createdBy,
+        },
+      });
+
+      const customerBalance = await latestCustomerBalance(tx, project.clientId);
+      const runningBalance = customerBalance.minus(advanceAmount);
+
+      await tx.ledgerEntry.create({
+        data: {
+          entryDate: new Date(),
+          partyType: "CUSTOMER",
+          partyId: project.clientId,
+          entryType: "CREDIT",
+          amount: advanceAmount,
+          referenceType: "PROJECT",
+          referenceId: project.id,
+          description: `Advance payment received for project: ${project.name} (${project.projectCode})`,
+          runningBalance,
+          channelType: "PROJECT",
+          createdBy,
+        },
+      });
+    }
+
     await tx.auditLog.create({
       data: {
         userId: createdBy,
         action: "CREATE",
         module: "PROJECT",
         recordId: project.id,
-        newValues: { projectCode, name: parsed.name, contractAmount: parsed.contractAmount.toString() },
+        newValues: { projectCode, name: parsed.name, contractAmount: parsed.contractAmount.toString(), advanceAmount: advanceAmount.toString() },
       },
     });
 
@@ -269,9 +322,29 @@ export async function issueSupplyToProject(data: IssueSupplyInput, userId?: stri
       });
     }
 
-    const vatPercent = new Decimal(13);
-    const vatAmount = subtotal.times(0.13);
-    const totalAmount = subtotal.plus(vatAmount);
+    const vatPercent = parsed.applyVat ? new Decimal(13) : new Decimal(0);
+    const vatAmount = parsed.applyVat ? subtotal.times(0.13) : new Decimal(0);
+    
+    let additionalExpensesSum = new Decimal(0);
+    const expenseNotesBreakdown: string[] = [];
+
+    if (parsed.additionalExpenses && parsed.additionalExpenses.length > 0) {
+      for (const expense of parsed.additionalExpenses) {
+        const amt = toDecimal(expense.amount);
+        additionalExpensesSum = additionalExpensesSum.plus(amt);
+        const typeLabel = expense.type === "TRANSPORT" ? "Transport" : expense.type === "LABOUR" ? "Labour" : "Misc";
+        const noteStr = expense.notes ? ` (${expense.notes})` : "";
+        expenseNotesBreakdown.push(`${typeLabel}: NPR ${amt.toString()}${noteStr}`);
+      }
+    }
+
+    const totalAmount = subtotal.plus(vatAmount).plus(additionalExpensesSum);
+
+    let invoiceNotes = parsed.notes || `Material dispatch for project ${project.name}`;
+    if (expenseNotesBreakdown.length > 0) {
+      const breakdownText = `[Additional Expenses -> ${expenseNotesBreakdown.join(" | ")}]`;
+      invoiceNotes = invoiceNotes ? `${invoiceNotes} ${breakdownText}` : breakdownText;
+    }
 
     // Create SalesInvoice of type PROJECT
     const invoice = await tx.salesInvoice.create({
@@ -291,7 +364,7 @@ export async function issueSupplyToProject(data: IssueSupplyInput, userId?: stri
         paidAmount: new Decimal(0),
         balanceAmount: totalAmount,
         paymentMethod: "CREDIT",
-        notes: parsed.notes || `Material dispatch for project ${project.name}`,
+        notes: invoiceNotes,
         createdBy,
       },
     });

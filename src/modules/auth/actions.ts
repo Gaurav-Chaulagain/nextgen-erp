@@ -40,118 +40,123 @@ export async function updateUserCredentials(
   userId: string,
   rawData: UpdateUserCredentialsInput
 ) {
-  // 1. Auth check
-  const sessionUser = await getCurrentUser();
-  if (!sessionUser) {
-    throw new Error("Unauthorized. Please log in.");
-  }
-
-  // 2. Permission: SUPERADMIN/OWNER can edit anyone. Others can only edit themselves.
-  const isSuperAdminOrOwner = sessionUser.role === "SUPERADMIN" || sessionUser.role === "OWNER";
-  const isEditingSelf = sessionUser.id === userId;
-
-  if (!isSuperAdminOrOwner && !isEditingSelf) {
-    throw new Error("Access Denied. You can only edit your own profile.");
-  }
-
-  // 3. Validate with Zod
-  const parsed = updateUserCredentialsSchema.safeParse(rawData);
-  if (!parsed.success) {
-    const firstError = parsed.error.errors[0];
-    throw new Error(firstError?.message || "Validation failed.");
-  }
-
-  const data = parsed.data;
-
-  // 4. Fetch current user record
-  const db = await getDb();
-  const oldUser = await db.user.findUnique({ where: { id: userId } });
-  if (!oldUser) {
-    throw new Error("User account not found.");
-  }
-
-  // 5. Self-edit guardrails (server-side enforcement)
-  if (isEditingSelf) {
-    if (data.role !== oldUser.role) {
-      throw new Error("Security Guardrail: You cannot modify your own role.");
+  try {
+    // 1. Auth check
+    const sessionUser = await getCurrentUser();
+    if (!sessionUser) {
+      return { success: false, error: "Unauthorized. Please log in." };
     }
-    if (!data.isActive && oldUser.isActive) {
-      throw new Error("Security Guardrail: You cannot deactivate your own account.");
+
+    // 2. Permission: SUPERADMIN/OWNER can edit anyone. Others can only edit themselves.
+    const isSuperAdminOrOwner = sessionUser.role === "SUPERADMIN" || sessionUser.role === "OWNER";
+    const isEditingSelf = sessionUser.id === userId;
+
+    if (!isSuperAdminOrOwner && !isEditingSelf) {
+      return { success: false, error: "Access Denied. You can only edit your own profile." };
     }
-  }
 
-  // 6. Non-SUPERADMIN/OWNER cannot change roles of others
-  if (!isSuperAdminOrOwner && data.role !== oldUser.role) {
-    throw new Error("Access Denied. Only Super Admins and Business Owners can change user roles.");
-  }
+    // 3. Validate with Zod
+    const parsed = updateUserCredentialsSchema.safeParse(rawData);
+    if (!parsed.success) {
+      const firstError = parsed.error.errors[0];
+      return { success: false, error: firstError?.message || "Validation failed." };
+    }
 
-  // 7. Email uniqueness check (exclude current user)
-  const emailLower = data.email.trim().toLowerCase();
-  const emailConflict = await db.user.findFirst({
-    where: {
+    const data = parsed.data;
+
+    // 4. Fetch current user record
+    const db = await getDb();
+    const oldUser = await db.user.findUnique({ where: { id: userId } });
+    if (!oldUser) {
+      return { success: false, error: "User account not found." };
+    }
+
+    // 5. Self-edit guardrails (server-side enforcement)
+    if (isEditingSelf) {
+      if (data.role !== oldUser.role) {
+        return { success: false, error: "Security Guardrail: You cannot modify your own role." };
+      }
+      if (!data.isActive && oldUser.isActive) {
+        return { success: false, error: "Security Guardrail: You cannot deactivate your own account." };
+      }
+    }
+
+    // 6. Non-SUPERADMIN/OWNER cannot change roles of others
+    if (!isSuperAdminOrOwner && data.role !== oldUser.role) {
+      return { success: false, error: "Access Denied. Only Super Admins and Business Owners can change user roles." };
+    }
+
+    // 7. Email uniqueness check (exclude current user)
+    const emailLower = data.email.trim().toLowerCase();
+    const emailConflict = await db.user.findFirst({
+      where: {
+        email: emailLower,
+        id: { not: userId },
+      },
+    });
+    if (emailConflict) {
+      return { success: false, error: "A user with this email address already exists." };
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      name: data.name.trim(),
       email: emailLower,
-      id: { not: userId },
-    },
-  });
-  if (emailConflict) {
-    throw new Error("A user with this email address already exists.");
-  }
+      phone: (data.phone && data.phone.trim()) || null,
+      role: data.role,
+      isActive: data.isActive,
+    };
 
-  const updatePayload: Record<string, unknown> = {
-    name: data.name.trim(),
-    email: emailLower,
-    phone: (data.phone && data.phone.trim()) || null,
-    role: data.role,
-    isActive: data.isActive,
-  };
+    // 9. Hash password only if provided
+    const passwordChanged = !!(data.newPassword && data.newPassword.length >= 8);
+    if (passwordChanged) {
+      updatePayload.passwordHash = await bcrypt.hash(data.newPassword!, 12);
+    }
 
-  // 9. Hash password only if provided
-  const passwordChanged = !!(data.newPassword && data.newPassword.length >= 8);
-  if (passwordChanged) {
-    updatePayload.passwordHash = await bcrypt.hash(data.newPassword!, 12);
-  }
+    // 10. Update user record
+    const updatedUser = await db.user.update({
+      where: { id: userId },
+      data: updatePayload,
+    });
 
-  // 10. Update user record
-  const updatedUser = await db.user.update({
-    where: { id: userId },
-    data: updatePayload,
-  });
+    // 11. Log in AuditLog
+    const changes: Record<string, unknown> = {};
+    if (oldUser.name !== updatedUser.name) changes.name = { from: oldUser.name, to: updatedUser.name };
+    if (oldUser.email !== updatedUser.email) changes.email = { from: oldUser.email, to: updatedUser.email };
+    if (oldUser.role !== updatedUser.role) changes.role = { from: oldUser.role, to: updatedUser.role };
+    if (oldUser.isActive !== updatedUser.isActive) changes.isActive = { from: oldUser.isActive, to: updatedUser.isActive };
+    if (passwordChanged) changes.passwordHash = "••• changed •••";
 
-  // 11. Log in AuditLog
-  const changes: Record<string, unknown> = {};
-  if (oldUser.name !== updatedUser.name) changes.name = { from: oldUser.name, to: updatedUser.name };
-  if (oldUser.email !== updatedUser.email) changes.email = { from: oldUser.email, to: updatedUser.email };
-  if (oldUser.role !== updatedUser.role) changes.role = { from: oldUser.role, to: updatedUser.role };
-  if (oldUser.isActive !== updatedUser.isActive) changes.isActive = { from: oldUser.isActive, to: updatedUser.isActive };
-  if (passwordChanged) changes.passwordHash = "••• changed •••";
-
-  await db.auditLog.create({
-    data: {
-      userId: sessionUser.id,
-      action: "UPDATE",
-      module: "USER",
-      recordId: userId,
-      oldValues: {
-        name: oldUser.name,
-        email: oldUser.email,
-        role: oldUser.role,
-        isActive: oldUser.isActive,
+    await db.auditLog.create({
+      data: {
+        userId: sessionUser.id,
+        action: "UPDATE",
+        module: "USER",
+        recordId: userId,
+        oldValues: {
+          name: oldUser.name,
+          email: oldUser.email,
+          role: oldUser.role,
+          isActive: oldUser.isActive,
+        },
+        newValues: {
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          isActive: updatedUser.isActive,
+          ...(passwordChanged ? { password: "changed" } : {}),
+        },
+        ipAddress: "Server-Action",
       },
-      newValues: {
-        name: updatedUser.name,
-        email: updatedUser.email,
-        role: updatedUser.role,
-        isActive: updatedUser.isActive,
-        ...(passwordChanged ? { password: "changed" } : {}),
-      },
-      ipAddress: "Server-Action",
-    },
-  });
+    });
 
-  // 12. Revalidate
-  revalidatePath("/users");
+    // 12. Revalidate
+    revalidatePath("/users");
 
-  return { success: true };
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error in updateUserCredentials:", error);
+    return { success: false, error: error.message || "Failed to update user credentials." };
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -543,11 +548,11 @@ export async function resetAllData(): Promise<{ success: boolean; error?: string
     await db.user.deleteMany();
 
     // 1. Create Superadmin User
-    const adminHash = await bcrypt.hash("Admin@2026", 12);
+    const adminHash = await bcrypt.hash("Nischal@123", 12);
     await db.user.create({
       data: {
         name: "Nischal Timsina",
-        email: "admin@nextgen.com",
+        email: "nischaltimsina20@gmail.com",
         phone: "9843146474",
         passwordHash: adminHash,
         role: "SUPERADMIN",

@@ -11,7 +11,7 @@ import { receiveGoodsSchema } from "@/modules/purchase/types";
 import { receiveGoods } from "@/modules/purchase/actions";
 import { toast } from "sonner";
 import { Package } from "lucide-react";
-import { formatNPR } from "@/lib/utils";
+import { formatAmountOnly } from "@/lib/utils";
 
 interface ReceiveGoodsModalProps {
   open?: boolean;
@@ -281,22 +281,22 @@ export function ReceiveGoodsModal({
                 {applyVat ? (
                   <>
                     <div className="flex justify-between text-xs text-zinc-500">
-                      <span>Subtotal:</span>
-                      <span className="font-semibold text-zinc-800">{formatNPR(subtotal)}</span>
+                      <span>Subtotal (NPR):</span>
+                      <span className="font-semibold text-zinc-800">{formatAmountOnly(subtotal)}</span>
                     </div>
                     <div className="flex justify-between text-xs text-zinc-500">
-                      <span>VAT (13%):</span>
-                      <span className="font-semibold text-zinc-800">{formatNPR(vatAmount)}</span>
+                      <span>VAT (13%, NPR):</span>
+                      <span className="font-semibold text-zinc-800">{formatAmountOnly(vatAmount)}</span>
                     </div>
                     <div className="border-t border-zinc-200 pt-2 flex justify-between text-sm font-bold text-zinc-950">
-                      <span>Total Payable:</span>
-                      <span>{formatNPR(totalPayable)}</span>
+                      <span>Total Payable (NPR):</span>
+                      <span>{formatAmountOnly(totalPayable)}</span>
                     </div>
                   </>
                 ) : (
                   <div className="flex justify-between text-sm font-bold text-zinc-950">
-                    <span>Total Payable:</span>
-                    <span>{formatNPR(totalPayable)} (no VAT)</span>
+                    <span>Total Payable (NPR):</span>
+                    <span>{formatAmountOnly(totalPayable)}</span>
                   </div>
                 )}
               </div>

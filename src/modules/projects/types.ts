@@ -15,6 +15,8 @@ export const createProjectSchema = z.object({
   budgetAmount: moneyInput.optional(),
   contractAmount: moneyInput,
   notes: z.string().optional().nullable(),
+  advanceAmount: moneyInput.optional().nullable(),
+  advancePaymentMethod: z.enum(["CASH", "BANK", "CHEQUE", "ESEWA", "KHALTI"]).optional().nullable(),
 });
 
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
@@ -34,11 +36,21 @@ export const issueSupplyItemSchema = z.object({
 
 export type IssueSupplyItemInput = z.infer<typeof issueSupplyItemSchema>;
 
+export const additionalExpenseSchema = z.object({
+  type: z.enum(["TRANSPORT", "LABOUR", "MISCELLANEOUS"]),
+  amount: moneyInput,
+  notes: z.string().optional().nullable(),
+});
+
+export type AdditionalExpenseInput = z.infer<typeof additionalExpenseSchema>;
+
 export const issueSupplySchema = z.object({
   projectId: z.string().min(1, "Project is required"),
   warehouseId: z.string().min(1, "Warehouse is required"),
   notes: z.string().optional().nullable(),
   items: z.array(issueSupplyItemSchema).min(1, "At least one item must be issued"),
+  applyVat: z.boolean().default(true),
+  additionalExpenses: z.array(additionalExpenseSchema).optional().default([]),
 });
 
 export type IssueSupplyInput = z.infer<typeof issueSupplySchema>;
@@ -105,6 +117,7 @@ export const projectProfitabilitySchema = z.object({
   projectId: z.string(),
   projectCode: z.string(),
   projectName: z.string(),
+  clientId: z.string(),
   clientName: z.string(),
   status: projectStatusSchema,
   contractAmount: z.string(),

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatNPR } from "@/lib/utils";
+import { formatAmountOnly } from "@/lib/utils";
 import { InvoicePreviewModal } from "../sales/InvoicePreviewModal";
 import { fetchInvoiceByIdAction } from "@/modules/projects/actions";
 import { updateProjectStatus } from "@/modules/projects/actions";
@@ -49,6 +49,8 @@ export function ProjectDetailClient({ data }: ProjectDetailClientProps) {
   const billed = parseFloat(project.totalBilled);
   const profit = billed - cost;
   const margin = billed > 0 ? (profit / billed) * 100 : 0;
+  const projectedProfit = contract - budget;
+  const projectedMargin = contract > 0 ? (projectedProfit / contract) * 100 : 0;
   
   const billedPercent = contract > 0 ? Math.min(100, Math.round((billed / contract) * 100)) : 0;
   const costPercent = budget > 0 ? Math.min(100, Math.round((cost / budget) * 100)) : 0;
@@ -88,6 +90,15 @@ export function ProjectDetailClient({ data }: ProjectDetailClientProps) {
     ON_HOLD: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
     COMPLETED: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200",
     CANCELLED: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
+  };
+
+  const invoiceStatusColors: Record<string, string> = {
+    DRAFT: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 hover:bg-zinc-100 hover:text-zinc-700 shadow-none",
+    SENT: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 hover:bg-blue-50 hover:text-blue-700 font-semibold shadow-none",
+    PAID: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-250 hover:bg-emerald-50 hover:text-emerald-700 font-semibold shadow-none",
+    PARTIAL: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-250 hover:bg-amber-50 hover:text-amber-700 font-semibold shadow-none",
+    CANCELLED: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 hover:bg-rose-50 hover:text-rose-700 shadow-none",
+    VOID: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 hover:bg-rose-50 hover:text-rose-700 shadow-none",
   };
 
   return (
@@ -165,7 +176,7 @@ export function ProjectDetailClient({ data }: ProjectDetailClientProps) {
           </CardHeader>
           <CardContent className="pt-2">
             <div className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-              {formatNPR(contract)}
+              {formatAmountOnly(contract)}
             </div>
             <p className="text-xs text-zinc-400 font-medium mt-1">Total revenue value agreed</p>
           </CardContent>
@@ -179,39 +190,51 @@ export function ProjectDetailClient({ data }: ProjectDetailClientProps) {
           </CardHeader>
           <CardContent className="pt-2">
             <div className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-              {formatNPR(billed)}
+              {formatAmountOnly(billed)}
             </div>
-            <p className="text-xs text-zinc-400 font-medium mt-1">Balance to bill: {formatNPR(Math.max(0, contract - billed))}</p>
+            <p className="text-xs text-zinc-400 font-medium mt-1">Balance to bill: {formatAmountOnly(Math.max(0, contract - billed))}</p>
           </CardContent>
         </Card>
 
         {/* Total Materials Issued */}
         <Card className="border shadow-sm rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/10">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-400">Material Cost</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-400">Actual Cost</CardTitle>
             <Hammer className="h-4.5 w-4.5 text-purple-500" />
           </CardHeader>
           <CardContent className="pt-2">
             <div className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-              {formatNPR(cost)}
+              {formatAmountOnly(cost)}
             </div>
-            <p className="text-xs text-zinc-400 font-medium mt-1">Internal stock budget: {formatNPR(budget)}</p>
+            <p className="text-xs text-zinc-400 font-medium mt-1">Internal stock budget: {formatAmountOnly(budget)}</p>
           </CardContent>
         </Card>
 
         {/* Job Cost profit */}
         <Card className="border shadow-sm rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/10">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-400">Gross profit</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-400">Project Profitability</CardTitle>
             <TrendingUp className="h-4.5 w-4.5 text-orange-500" />
           </CardHeader>
-          <CardContent className="pt-2">
-            <div className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-              {formatNPR(profit)}
+          <CardContent className="pt-2 space-y-3">
+            <div className="flex flex-col">
+              <span className="text-[9px] text-zinc-450 font-bold uppercase tracking-wide">Realized Profit (To Date)</span>
+              <div className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                {formatAmountOnly(profit)}
+              </div>
+              <p className="text-[10px] text-zinc-400 font-semibold mt-0.5">
+                Realized Margin: <span className="font-bold text-green-600 dark:text-green-400">{margin.toFixed(1)}%</span>
+              </p>
             </div>
-            <p className="text-xs text-zinc-400 font-medium mt-1">
-              Real-time Margin: <span className="font-bold text-green-600 dark:text-green-400">{margin.toFixed(1)}%</span>
-            </p>
+            <div className="border-t pt-2 flex flex-col">
+              <span className="text-[9px] text-zinc-450 font-bold uppercase tracking-wide">Projected Net Profit (At Completion)</span>
+              <div className="text-sm font-extrabold text-zinc-800 dark:text-zinc-200">
+                {formatAmountOnly(projectedProfit)}
+              </div>
+              <p className="text-[10px] text-zinc-400 font-semibold mt-0.5">
+                Projected Margin: <span className={`font-bold ${projectedProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-rose-500"}`}>{projectedMargin.toFixed(1)}%</span>
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -256,7 +279,7 @@ export function ProjectDetailClient({ data }: ProjectDetailClientProps) {
                 <TableRow className="bg-zinc-50 dark:bg-zinc-900 text-[10px] uppercase font-bold text-zinc-400">
                   <TableHead>Invoice #</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">Amount (NPR)</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-20"></TableHead>
                 </TableRow>
@@ -271,9 +294,9 @@ export function ProjectDetailClient({ data }: ProjectDetailClientProps) {
                     <TableRow key={b.id} className="text-xs hover:bg-zinc-50/50">
                       <TableCell className="font-mono font-semibold">{b.invoiceNumber}</TableCell>
                       <TableCell>{new Date(b.billingDate).toLocaleDateString("en-IN")}</TableCell>
-                      <TableCell className="text-right font-medium">{formatNPR(parseFloat(b.amount))}</TableCell>
+                      <TableCell className="text-right font-medium">{formatAmountOnly(parseFloat(b.amount))}</TableCell>
                       <TableCell>
-                        <Badge className={statusColors[b.status] || "bg-zinc-100"}>{b.status}</Badge>
+                        <Badge className={invoiceStatusColors[b.status] || "bg-zinc-100 text-zinc-700 border border-zinc-200"}>{b.status}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
@@ -305,8 +328,8 @@ export function ProjectDetailClient({ data }: ProjectDetailClientProps) {
                   <TableHead>Date</TableHead>
                   <TableHead>Item</TableHead>
                   <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Cost Rate</TableHead>
-                  <TableHead className="text-right">Total Cost</TableHead>
+                  <TableHead className="text-right">Cost Rate (NPR)</TableHead>
+                  <TableHead className="text-right">Total Cost (NPR)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -323,8 +346,8 @@ export function ProjectDetailClient({ data }: ProjectDetailClientProps) {
                         <span className="text-[10px] text-zinc-400 block font-mono">{m.productCode} • {m.warehouseName}</span>
                       </TableCell>
                       <TableCell className="text-right font-medium">{m.qtyUsed} {m.productUnit}</TableCell>
-                      <TableCell className="text-right text-zinc-500">{formatNPR(parseFloat(m.unitCost))}</TableCell>
-                      <TableCell className="text-right font-bold text-purple-600">{formatNPR(parseFloat(m.totalCost))}</TableCell>
+                      <TableCell className="text-right text-zinc-500">{formatAmountOnly(parseFloat(m.unitCost))}</TableCell>
+                      <TableCell className="text-right font-bold text-purple-600">{formatAmountOnly(parseFloat(m.totalCost))}</TableCell>
                     </TableRow>
                   ))
                 )}

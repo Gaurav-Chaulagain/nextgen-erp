@@ -375,6 +375,21 @@ export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
       });
     }
 
+    let expectedDateVal = po.expectedDate;
+    let notesVal = po.notes;
+
+    if (newStatus === "RECEIVED") {
+      expectedDateVal = new Date();
+    } else if (newStatus === "PARTIAL") {
+      const dateStr = new Date().toLocaleDateString("en-IN");
+      const partialLine = `[Partial Receipt: ${dateStr}]`;
+      if (!notesVal) {
+        notesVal = partialLine;
+      } else if (!notesVal.includes(partialLine)) {
+        notesVal = `${notesVal}\n${partialLine}`;
+      }
+    }
+
     const updatedPO = await tx.purchaseOrder.update({
       where: { id: parsed.purchaseOrderId },
       data: {
@@ -382,6 +397,8 @@ export async function receiveGoods(data: ReceiveGoodsInput, userId: string) {
         subtotal: newSubtotal,
         taxAmount: newTax,
         totalAmount: newTotal,
+        expectedDate: expectedDateVal,
+        notes: notesVal,
       },
     });
 
@@ -759,6 +776,19 @@ export async function createPurchaseReturn(data: {
 export async function fetchPOByIdAction(id: string) {
   const order = await getPOById(id);
   return serializeForClient(order);
+}
+
+export async function getProductStockLevels(productIds: string[]) {
+  const db = await getDb();
+  const stocks = await db.inventoryStock.findMany({
+    where: { productId: { in: productIds } },
+    select: { productId: true, quantity: true },
+  });
+  const stockMap: Record<string, number> = {};
+  for (const s of stocks) {
+    stockMap[s.productId] = s.quantity;
+  }
+  return stockMap;
 }
 
 

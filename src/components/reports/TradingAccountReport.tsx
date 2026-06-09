@@ -47,23 +47,23 @@ export function TradingAccountReport({ data }: TradingAccountReportProps) {
             {/* Row 1 */}
             <div className="grid grid-cols-4 px-6 py-4 items-center">
               <span className="text-zinc-500 dark:text-zinc-400">Opening Stock brought forward</span>
-              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.openingStock)} /></span>
+              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.openingStock)} showCurrency={false} /></span>
               <span className="text-zinc-500 dark:text-zinc-400 pl-6">Sales Revenue (Taxable Subtotal)</span>
-              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.sales)} /></span>
+              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.sales)} showCurrency={false} /></span>
             </div>
 
             {/* Row 2 */}
             <div className="grid grid-cols-4 px-6 py-4 items-center">
               <span className="text-zinc-500 dark:text-zinc-400">Procurement Purchases (Period)</span>
-              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.purchases)} /></span>
+              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.purchases)} showCurrency={false} /></span>
               <span className="text-zinc-500 dark:text-zinc-400 pl-6">Closing Stock Valuation (FIFO)</span>
-              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.closingStock)} /></span>
+              <span className="text-right text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.closingStock)} showCurrency={false} /></span>
             </div>
 
             {/* Row 3 */}
             <div className="grid grid-cols-4 px-6 py-4 items-center bg-zinc-50/10 dark:bg-zinc-900/5">
               <span className="text-zinc-400 italic">Cost of Goods Sold (COGS)</span>
-              <span className="text-right text-rose-600 dark:text-rose-400 font-bold"><NPRAmount amount={Number(data.cogs)} /></span>
+              <span className="text-right text-rose-600 dark:text-rose-400 font-bold"><NPRAmount amount={Number(data.cogs)} showCurrency={false} /></span>
               <span className="pl-6">-</span>
               <span className="text-right">-</span>
             </div>
@@ -71,7 +71,7 @@ export function TradingAccountReport({ data }: TradingAccountReportProps) {
             {/* Row 4 */}
             <div className="grid grid-cols-4 px-6 py-4 items-center bg-emerald-50/10 dark:bg-emerald-950/5">
               <span className="text-emerald-700 dark:text-emerald-400 font-bold">Gross Profit transferred to P&L</span>
-              <span className="text-right text-emerald-600 dark:text-emerald-400 font-bold"><NPRAmount amount={Number(data.grossProfit)} /></span>
+              <span className="text-right text-emerald-600 dark:text-emerald-400 font-bold"><NPRAmount amount={Number(data.grossProfit)} showCurrency={false} /></span>
               <span className="pl-6">-</span>
               <span className="text-right">-</span>
             </div>
@@ -79,9 +79,9 @@ export function TradingAccountReport({ data }: TradingAccountReportProps) {
             {/* Total Row */}
             <div className="grid grid-cols-4 px-6 py-5 items-center bg-zinc-50/50 dark:bg-zinc-900/30 font-extrabold border-t border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 uppercase tracking-wider text-xs">
               <span>TOTAL DEBITS</span>
-              <span className="text-right"><NPRAmount amount={debitTotal} /></span>
+              <span className="text-right"><NPRAmount amount={debitTotal} showCurrency={false} /></span>
               <span className="pl-6">TOTAL CREDITS</span>
-              <span className="text-right"><NPRAmount amount={creditTotal} /></span>
+              <span className="text-right"><NPRAmount amount={creditTotal} showCurrency={false} /></span>
             </div>
           </div>
         </div>

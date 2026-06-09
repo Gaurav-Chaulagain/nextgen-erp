@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { INVOICE_COLORS } from "@/lib/constants";
-import { formatNPR } from "@/lib/utils";
+import { formatAmountOnly } from "@/lib/utils";
 import type { SalesInvoiceSchema } from "@/modules/sales/types";
 import { generateInvoicePDF } from "@/lib/invoice-pdf";
 
@@ -110,8 +110,8 @@ export function InvoicePreviewModal({ open = false, onOpenChange, invoice }: Inv
                   <tr className="border-b bg-zinc-50 text-zinc-700">
                     <th className="px-3 py-2.5 text-left font-semibold">Item & Returns Description</th>
                     <th className="px-3 py-2.5 text-right font-semibold w-36">Qty</th>
-                    <th className="px-3 py-2.5 text-right font-semibold w-28">Rate</th>
-                    <th className="px-3 py-2.5 text-right font-semibold w-36">Total</th>
+                    <th className="px-3 py-2.5 text-right font-semibold w-28">Rate (NPR)</th>
+                    <th className="px-3 py-2.5 text-right font-semibold w-36">Total (NPR)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200">
@@ -186,25 +186,25 @@ export function InvoicePreviewModal({ open = false, onOpenChange, invoice }: Inv
                         </td>
 
                         <td className="px-3 py-3 text-right font-mono text-zinc-900">
-                          {formatNPR(Number(item.unitPrice))}
+                          {formatAmountOnly(Number(item.unitPrice))}
                         </td>
 
                         <td className="px-3 py-3 text-right">
                           {retInfo ? (
                             <div className="flex flex-col font-mono text-xs gap-0.5">
                               <span className="text-zinc-400 line-through">
-                                {formatNPR(Number(item.totalPrice))}
+                                {formatAmountOnly(Number(item.totalPrice))}
                               </span>
                               <span className="text-rose-650 font-medium">
-                                -{formatNPR(retInfo.totalPrice)}
+                                -{formatAmountOnly(retInfo.totalPrice)}
                               </span>
                               <span className="font-bold text-zinc-900 border-t border-dashed border-zinc-200 pt-0.5 mt-0.5">
-                                {formatNPR(Number(item.totalPrice) - retInfo.totalPrice)}
+                                {formatAmountOnly(Number(item.totalPrice) - retInfo.totalPrice)}
                               </span>
                             </div>
                           ) : (
                             <span className="font-mono text-zinc-900">
-                              {formatNPR(Number(item.totalPrice))}
+                              {formatAmountOnly(Number(item.totalPrice))}
                             </span>
                           )}
                         </td>
@@ -231,34 +231,34 @@ export function InvoicePreviewModal({ open = false, onOpenChange, invoice }: Inv
                   <div className="ml-auto mt-6 w-full max-w-sm space-y-2 text-sm border-t pt-4">
                     <div className="flex justify-between text-zinc-500">
                       <span>Original Subtotal</span>
-                      <span>{formatNPR(originalSubtotal)}</span>
+                      <span>{formatAmountOnly(originalSubtotal)}</span>
                     </div>
                     {originalDiscountAmount > 0 && (
                       <div className="flex justify-between text-zinc-500">
                         <span>Original Discount</span>
-                        <span>{formatNPR(originalDiscountAmount)}</span>
+                        <span>{formatAmountOnly(originalDiscountAmount)}</span>
                       </div>
                     )}
                     {originalVatAmount > 0 && (
                       <div className="flex justify-between text-zinc-500">
                         <span>Original VAT ({invoice.vatPercent}%)</span>
-                        <span>{formatNPR(originalVatAmount)}</span>
+                        <span>{formatAmountOnly(originalVatAmount)}</span>
                       </div>
                     )}
                     <div className="flex justify-between border-b pb-2 font-semibold text-zinc-800">
                       <span>Original Total</span>
-                      <span>{formatNPR(originalTotal)}</span>
+                      <span>{formatAmountOnly(originalTotal)}</span>
                     </div>
 
                     {totalReturned > 0 && (
                       <>
                         <div className="flex justify-between text-rose-600 font-semibold">
                           <span>Total Returned (incl. VAT)</span>
-                          <span>-{formatNPR(totalReturned)}</span>
+                          <span>-{formatAmountOnly(totalReturned)}</span>
                         </div>
                         <div className="flex justify-between border-t pt-2 text-base font-bold text-zinc-900 bg-zinc-50 p-2.5 rounded-xl border border-zinc-200 shadow-sm">
                           <span>Net Invoice Value</span>
-                          <span className="font-mono">{formatNPR(netTotal)}</span>
+                          <span className="font-mono">{formatAmountOnly(netTotal)}</span>
                         </div>
                       </>
                     )}
@@ -266,17 +266,17 @@ export function InvoicePreviewModal({ open = false, onOpenChange, invoice }: Inv
                     {totalReturned === 0 && (
                       <div className="flex justify-between border-t pt-2 text-base font-bold text-zinc-900 bg-zinc-50 p-2.5 rounded-xl border border-zinc-200 shadow-sm">
                         <span>Total Amount</span>
-                        <span className="font-mono">{formatNPR(netTotal)}</span>
+                        <span className="font-mono">{formatAmountOnly(netTotal)}</span>
                       </div>
                     )}
 
                     <div className="flex justify-between text-xs text-zinc-500 px-2 pt-1">
                       <span>Amount Paid</span>
-                      <span>{formatNPR(Number(invoice.paidAmount))}</span>
+                      <span>{formatAmountOnly(Number(invoice.paidAmount))}</span>
                     </div>
                     <div className="flex justify-between text-sm font-bold text-orange-600 px-2">
                       <span>Balance Due</span>
-                      <span className="font-mono">{formatNPR(Number(invoice.balanceAmount))}</span>
+                      <span className="font-mono">{formatAmountOnly(Number(invoice.balanceAmount))}</span>
                     </div>
                   </div>
                 );

@@ -59,22 +59,22 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
             
             <div className="grid grid-cols-5 px-6 py-3.5 items-center">
               <span className="col-span-3 text-zinc-500 dark:text-zinc-400">Cash Receipts from Customers</span>
-              <span className="text-right col-span-2 text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.operating.receiptsFromCustomers)} /></span>
+              <span className="text-right col-span-2 text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.operating.receiptsFromCustomers)} showCurrency={false} /></span>
             </div>
 
             <div className="grid grid-cols-5 px-6 py-3.5 items-center">
               <span className="col-span-3 text-zinc-500 dark:text-zinc-400">Less: Cash Paid to Suppliers (Procurement)</span>
-              <span className="text-right col-span-2 text-rose-600 dark:text-rose-400">-<NPRAmount amount={Number(data.operating.paymentsToSuppliers)} /></span>
+              <span className="text-right col-span-2 text-rose-600 dark:text-rose-400">-<NPRAmount amount={Number(data.operating.paymentsToSuppliers)} showCurrency={false} /></span>
             </div>
 
             <div className="grid grid-cols-5 px-6 py-3.5 items-center">
               <span className="col-span-3 text-zinc-500 dark:text-zinc-400">Less: Cash Paid for Operating Expenses (Rent, Utilities, Wages)</span>
-              <span className="text-right col-span-2 text-rose-600 dark:text-rose-400">-<NPRAmount amount={Number(data.operating.operatingExpenses)} /></span>
+              <span className="text-right col-span-2 text-rose-600 dark:text-rose-400">-<NPRAmount amount={Number(data.operating.operatingExpenses)} showCurrency={false} /></span>
             </div>
 
             <div className="grid grid-cols-5 px-6 py-4 items-center bg-zinc-50/20 dark:bg-zinc-900/5 font-bold">
               <span className="col-span-3 text-zinc-700 dark:text-zinc-300">Net Cash Generated from Operating Activities</span>
-              <span className="text-right col-span-2 text-zinc-900 dark:text-zinc-50"><NPRAmount amount={Number(data.operating.netOperating)} /></span>
+              <span className="text-right col-span-2 text-zinc-900 dark:text-zinc-50"><NPRAmount amount={Number(data.operating.netOperating)} showCurrency={false} /></span>
             </div>
 
             {/* B. INVESTING */}
@@ -84,12 +84,12 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
 
             <div className="grid grid-cols-5 px-6 py-3.5 items-center">
               <span className="col-span-3 text-zinc-500 dark:text-zinc-400">Less: Procurement & Capitalization of Fixed Assets</span>
-              <span className="text-right col-span-2 text-rose-600 dark:text-rose-400">-<NPRAmount amount={Number(data.investing.fixedAssetPurchases)} /></span>
+              <span className="text-right col-span-2 text-rose-600 dark:text-rose-400">-<NPRAmount amount={Number(data.investing.fixedAssetPurchases)} showCurrency={false} /></span>
             </div>
 
             <div className="grid grid-cols-5 px-6 py-4 items-center bg-zinc-50/20 dark:bg-zinc-900/5 font-bold">
               <span className="col-span-3 text-zinc-700 dark:text-zinc-300">Net Cash Used in Investing Activities</span>
-              <span className="text-right col-span-2 text-rose-600 dark:text-rose-400">({Number(data.investing.fixedAssetPurchases) !== 0 ? "-" : ""}<NPRAmount amount={Number(data.investing.fixedAssetPurchases)} />)</span>
+              <span className="text-right col-span-2 text-rose-600 dark:text-rose-400">({Number(data.investing.fixedAssetPurchases) !== 0 ? "-" : ""}<NPRAmount amount={Number(data.investing.fixedAssetPurchases)} showCurrency={false} />)</span>
             </div>
 
             {/* C. FINANCING */}
@@ -99,12 +99,12 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
 
             <div className="grid grid-cols-5 px-6 py-3.5 items-center">
               <span className="col-span-3 text-zinc-500 dark:text-zinc-400">Owner Capital Contributions / Inward Equity</span>
-              <span className="text-right col-span-2 text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.financing.capitalContributions)} /></span>
+              <span className="text-right col-span-2 text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.financing.capitalContributions)} showCurrency={false} /></span>
             </div>
 
             <div className="grid grid-cols-5 px-6 py-4 items-center bg-zinc-50/20 dark:bg-zinc-900/5 font-bold">
               <span className="col-span-3 text-zinc-700 dark:text-zinc-300">Net Cash Flow from Financing Activities</span>
-              <span className="text-right col-span-2 text-zinc-900 dark:text-zinc-50"><NPRAmount amount={Number(data.financing.netFinancing)} /></span>
+              <span className="text-right col-span-2 text-zinc-900 dark:text-zinc-50"><NPRAmount amount={Number(data.financing.netFinancing)} showCurrency={false} /></span>
             </div>
 
             {/* D. RECONCILIATION */}
@@ -115,18 +115,18 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
             <div className="grid grid-cols-5 px-6 py-3.5 items-center font-bold bg-zinc-50/10 dark:bg-zinc-900/5">
               <span className="col-span-3 text-zinc-600 dark:text-zinc-300">Net Increase / (Decrease) in Cash (A + B + C)</span>
               <span className={`text-right col-span-2 font-extrabold ${isNetInflow ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600"}`}>
-                {isNetInflow ? "+" : "-"}<NPRAmount amount={Math.abs(Number(data.netChange))} />
+                {isNetInflow ? "+" : "-"}<NPRAmount amount={Math.abs(Number(data.netChange))} showCurrency={false} />
               </span>
             </div>
 
             <div className="grid grid-cols-5 px-6 py-3.5 items-center">
               <span className="col-span-3 text-zinc-500 dark:text-zinc-400 font-medium">Cash and Cash Equivalents at Beginning of Month</span>
-              <span className="text-right col-span-2 text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.openingCash)} /></span>
+              <span className="text-right col-span-2 text-zinc-800 dark:text-zinc-200"><NPRAmount amount={Number(data.openingCash)} showCurrency={false} /></span>
             </div>
 
             <div className="grid grid-cols-5 px-6 py-5 items-center bg-zinc-50/50 dark:bg-zinc-900/30 font-extrabold border-t border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 uppercase tracking-wider text-xs">
               <span className="col-span-3">Cash & Cash Equivalents at End of Month (Reconciled Vaults)</span>
-              <span className="text-right col-span-2 text-zinc-950 dark:text-zinc-50"><NPRAmount amount={Number(data.closingCash)} /></span>
+              <span className="text-right col-span-2 text-zinc-950 dark:text-zinc-50"><NPRAmount amount={Number(data.closingCash)} showCurrency={false} /></span>
             </div>
           </div>
         </div>

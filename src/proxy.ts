@@ -30,6 +30,6 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!login|forgot-password|verify-otp|reset-password|api|_next|favicon.ico|next.svg|vercel.svg).*)",
+    "/((?!login|forgot-password|verify-otp|reset-password|api|_next|favicon.ico|icon.png|next.svg|vercel.svg|logo.png|login-hero.png).*)",
   ],
 };
