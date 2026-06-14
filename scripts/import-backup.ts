@@ -6,10 +6,13 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 
 // Locate the backup file path
-const BACKUP_PATH = "/home/rabin/Documents/NextGenERP/NextGenERP_FullBackup_2026-06-13.json";
+const defaultBackupPath = "/home/rabin/Documents/NextGenERP/NextGenERP_FullBackup_2026-06-14.json";
+const argPath = process.argv[2];
+const BACKUP_PATH = argPath ? path.resolve(argPath) : defaultBackupPath;
 
 if (!fs.existsSync(BACKUP_PATH)) {
   console.error(`❌ Backup file not found at: ${BACKUP_PATH}`);
+  console.log("💡 Usage: npm run db:restore -- [path/to/backup.json]");
   process.exit(1);
 }
 
@@ -30,15 +33,22 @@ async function importBackup() {
 
   console.log("\n🧹 Cleaning existing local records in reverse dependency order...");
   await prisma.auditLog.deleteMany();
+  await prisma.passwordResetToken.deleteMany();
   await prisma.depreciationEntry.deleteMany();
   await prisma.fixedAsset.deleteMany();
-  await prisma.cashBookEntry.deleteMany();
-  await prisma.ledgerEntry.deleteMany();
-  await prisma.payment.deleteMany();
+  await prisma.expense.deleteMany();
+  await prisma.projectBilling.deleteMany();
+  await prisma.salesReturnItem.deleteMany();
+  await prisma.salesReturn.deleteMany();
+  await prisma.purchaseReturnItem.deleteMany();
+  await prisma.purchaseReturn.deleteMany();
   await prisma.salesInvoiceItem.deleteMany();
   await prisma.salesInvoice.deleteMany();
   await prisma.purchaseOrderItem.deleteMany();
   await prisma.purchaseOrder.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.ledgerEntry.deleteMany();
+  await prisma.cashBookEntry.deleteMany();
   await prisma.stockTransaction.deleteMany();
   await prisma.inventoryStock.deleteMany();
   await prisma.project.deleteMany();
@@ -50,6 +60,7 @@ async function importBackup() {
   await prisma.brand.deleteMany();
   await prisma.category.deleteMany();
   await prisma.fiscalYear.deleteMany();
+  await prisma.businessSettings.deleteMany();
   await prisma.user.deleteMany();
   console.log("✅ Local database cleared.");
 
@@ -72,10 +83,22 @@ async function importBackup() {
     await prisma.user.createMany({ data: data.users.map(parseDates) });
   }
 
+  // Expenses
+  if (data.expenses?.length) {
+    console.log(`- Importing ${data.expenses.length} Expenses...`);
+    await prisma.expense.createMany({ data: data.expenses.map(parseDates) });
+  }
+
   // Fiscal Years
   if (data.fiscalYears?.length) {
     console.log(`- Importing ${data.fiscalYears.length} Fiscal Years...`);
     await prisma.fiscalYear.createMany({ data: data.fiscalYears.map(parseDates) });
+  }
+
+  // Business Settings
+  if (data.businessSettings?.length) {
+    console.log(`- Importing ${data.businessSettings.length} Business Settings...`);
+    await prisma.businessSettings.createMany({ data: data.businessSettings.map(parseDates) });
   }
 
   // Categories
@@ -150,6 +173,18 @@ async function importBackup() {
     await prisma.purchaseOrderItem.createMany({ data: data.poItems.map(parseDates) });
   }
 
+  // Purchase Returns
+  if (data.purchaseReturns?.length) {
+    console.log(`- Importing ${data.purchaseReturns.length} Purchase Returns...`);
+    await prisma.purchaseReturn.createMany({ data: data.purchaseReturns.map(parseDates) });
+  }
+
+  // Purchase Return Items
+  if (data.purchaseReturnItems?.length) {
+    console.log(`- Importing ${data.purchaseReturnItems.length} Purchase Return items...`);
+    await prisma.purchaseReturnItem.createMany({ data: data.purchaseReturnItems.map(parseDates) });
+  }
+
   // Sales Invoices
   if (data.salesInvoices?.length) {
     console.log(`- Importing ${data.salesInvoices.length} Sales Invoices...`);
@@ -160,6 +195,24 @@ async function importBackup() {
   if (data.invoiceItems?.length) {
     console.log(`- Importing ${data.invoiceItems.length} Sales Invoice items...`);
     await prisma.salesInvoiceItem.createMany({ data: data.invoiceItems.map(parseDates) });
+  }
+
+  // Sales Returns
+  if (data.salesReturns?.length) {
+    console.log(`- Importing ${data.salesReturns.length} Sales Returns...`);
+    await prisma.salesReturn.createMany({ data: data.salesReturns.map(parseDates) });
+  }
+
+  // Sales Return Items
+  if (data.salesReturnItems?.length) {
+    console.log(`- Importing ${data.salesReturnItems.length} Sales Return items...`);
+    await prisma.salesReturnItem.createMany({ data: data.salesReturnItems.map(parseDates) });
+  }
+
+  // Project Billings
+  if (data.projectBillings?.length) {
+    console.log(`- Importing ${data.projectBillings.length} Project Billings...`);
+    await prisma.projectBilling.createMany({ data: data.projectBillings.map(parseDates) });
   }
 
   // Payments

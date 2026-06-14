@@ -479,3 +479,46 @@ export async function fetchInvoiceByIdAction(id: string) {
   const invoice = await getInvoiceById(id);
   return serializeForClient(invoice);
 }
+
+export async function deleteProject(id: string, userId?: string) {
+  const db = await getDb();
+  const activeUserId = await resolveUserId(db, userId);
+
+  const project = await db.project.findUnique({
+    where: { id },
+    include: {
+      salesInvoices: { select: { id: true } },
+      projectBilling: { select: { id: true } },
+    },
+  });
+
+  if (!project) throw new Error("Project not found");
+
+  if (project.status !== "CANCELLED" && project.status !== "COMPLETED") {
+    throw new Error("Only cancelled or completed projects can be deleted.");
+  }
+
+  if (project.salesInvoices.length > 0 || project.projectBilling.length > 0) {
+    throw new Error(
+      `Cannot delete project. It has ${project.salesInvoices.length} invoices and ${project.projectBilling.length} billings associated. Please delete those first.`
+    );
+  }
+
+  const result = await db.$transaction(async (tx) => {
+    const deleted = await tx.project.delete({ where: { id } });
+
+    await tx.auditLog.create({
+      data: {
+        userId: activeUserId,
+        action: "DELETE",
+        module: "PROJECT",
+        recordId: id,
+        oldValues: project as any,
+      },
+    });
+
+    return deleted;
+  });
+
+  return serializeForClient(result);
+}

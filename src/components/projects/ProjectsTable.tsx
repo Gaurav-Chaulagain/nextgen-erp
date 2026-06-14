@@ -8,10 +8,10 @@ import { DataTable } from "@/components/shared/DataTable";
 import { formatNepaliNumber } from "@/lib/utils";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ProjectProfitabilitySchema } from "@/modules/projects/types";
-import { updateProjectStatus } from "@/modules/projects/actions";
+import { updateProjectStatus, deleteProject } from "@/modules/projects/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Hammer, Eye, Edit2, PlayCircle, PauseCircle, CheckCircle } from "lucide-react";
+import { Hammer, Eye, Edit2, PlayCircle, PauseCircle, CheckCircle, Trash2 } from "lucide-react";
 import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
 
 interface ProjectsTableProps {
@@ -32,6 +32,21 @@ export function ProjectsTable({ projects, onIssueSupply, onEdit }: ProjectsTable
         router.refresh();
       } catch (err: any) {
         toast.error(err.message || "Failed to update project status");
+      }
+    });
+  };
+
+  const handleDeleteProject = (projectId: string, projectName: string) => {
+    if (!confirm(`Are you sure you want to delete project "${projectName}"? This will permanently remove this project record.`)) {
+      return;
+    }
+    startTransition(async () => {
+      try {
+        await deleteProject(projectId);
+        toast.success(`Project "${projectName}" deleted successfully.`);
+        router.refresh();
+      } catch (err: any) {
+        toast.error(err.message || "Failed to delete project");
       }
     });
   };
@@ -190,6 +205,19 @@ export function ProjectsTable({ projects, onIssueSupply, onEdit }: ProjectsTable
             >
               <Edit2 className="h-3 w-3" />
             </Button>
+
+            {(p.status === "CANCELLED" || p.status === "COMPLETED") && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2 border-rose-200 text-rose-650 hover:bg-rose-50 hover:text-rose-750 dark:border-rose-950 dark:hover:bg-rose-950/20"
+                disabled={isPending}
+                onClick={() => handleDeleteProject(p.projectId, p.projectName)}
+                title="Delete Project"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
 
             {/* Status quick toggle */}
             <div className="flex items-center gap-1 border rounded-lg p-0.5 bg-zinc-50 dark:bg-zinc-900/40">

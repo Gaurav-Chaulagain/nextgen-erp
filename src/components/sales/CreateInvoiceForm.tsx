@@ -12,6 +12,7 @@ import { createInvoiceSchema } from "@/modules/sales/types";
 import type { CustomerOptionSchema, ProductOptionSchema, ProjectOptionSchema, WarehouseOptionSchema } from "@/modules/sales/types";
 import { toast } from "sonner";
 import { DualDatePicker } from '@/components/shared/DualDatePicker';
+import { ProductAutocomplete } from "@/components/shared/ProductAutocomplete";
 
 type InvoiceType = "RETAIL" | "WHOLESALE" | "PROJECT";
 
@@ -334,11 +335,14 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
                           <div key={item.id} className="grid gap-3 rounded-lg border p-3 lg:grid-cols-[1.5fr_1fr_80px_90px_90px_110px_90px_100px_auto] lg:items-end">
                             <div>
                               <label className="text-xs font-medium text-zinc-500">Product</label>
-                              <select value={item.productId} onChange={(event) => updateLine(item.id, { productId: event.target.value })} className="h-9 w-full rounded-lg border bg-background px-3 text-sm">
-                                {products.map((candidate) => (
-                                  <option key={candidate.id} value={candidate.id}>{candidate.code} - {candidate.name}</option>
-                                ))}
-                              </select>
+                              <ProductAutocomplete
+                                products={products}
+                                value={item.productId}
+                                onChange={(selectedId) =>
+                                  updateLine(item.id, { productId: selectedId })
+                                }
+                                placeholder="Search product..."
+                              />
                             </div>
                             <div>
                               <label className="text-xs font-medium text-zinc-500">Warehouse</label>

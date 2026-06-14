@@ -10,6 +10,7 @@ import { issueSupplySchema } from "@/modules/projects/types";
 import { issueSupplyToProject } from "@/modules/projects/actions";
 import { toast } from "sonner";
 import { Trash2, Plus, Info } from "lucide-react";
+import { ProductAutocomplete } from "@/components/shared/ProductAutocomplete";
 
 interface IssueSupplyModalProps {
   open: boolean;
@@ -357,17 +358,14 @@ export function IssueSupplyModal({
                       {/* Product */}
                       <div className="col-span-12 sm:col-span-3">
                         <label className="text-[10px] text-zinc-500 block mb-0.5">Product *</label>
-                        <select
+                        <ProductAutocomplete
+                          products={products}
                           value={item.productId}
-                          onChange={(e) => updateLine(item.id, { productId: e.target.value })}
-                          className="w-full border rounded-md px-3 py-1.5 text-xs bg-white dark:bg-zinc-950"
-                        >
-                          {products.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              [{p.code}] {p.name}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(selectedId) =>
+                            updateLine(item.id, { productId: selectedId })
+                          }
+                          placeholder="Search product..."
+                        />
                       </div>
 
                       {/* Dispatch Qty */}

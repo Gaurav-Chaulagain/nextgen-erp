@@ -47,6 +47,18 @@ export function InventoryTable({ items }: InventoryTableProps) {
     {
       accessorKey: "productCode",
       header: "Product",
+      filterFn: (row, columnId, filterValue) => {
+        const query = String(filterValue).toLowerCase().trim();
+        if (!query) return true;
+        const productName = (row.original.name || "").toLowerCase();
+        const brandName = (row.original.brand || "").toLowerCase();
+        const warehouseName = (row.original.warehouse || "").toLowerCase();
+        return (
+          productName.includes(query) ||
+          brandName.includes(query) ||
+          warehouseName.includes(query)
+        );
+      },
       cell: ({ row }) => (
         <div className="space-y-1 whitespace-normal min-w-[200px] max-w-[340px]">
           <div className="text-sm font-medium text-zinc-900 dark:text-zinc-50">{`${row.original.productCode} · ${row.original.name}`}</div>

@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { getPurchaseLookups, updatePurchaseOrder } from "@/modules/purchase/actions";
-import { ShoppingBag, Loader2, Calendar, FileText } from "lucide-react";
+import { ShoppingBag, Loader2, Calendar, FileText, Plus, Trash2 } from "lucide-react";
 import { DualDatePicker } from "@/components/shared/DualDatePicker";
+import { ProductAutocomplete } from "@/components/shared/ProductAutocomplete";
 import type { PurchaseOrderSchema } from "@/modules/purchase/types";
 
 interface EditPurchaseOrderModalProps {
@@ -24,12 +25,26 @@ export function EditPurchaseOrderModal({ isOpen, onClose, onSuccess, po, userId 
   const [supplierId, setSupplierId] = useState("");
   const [expectedDelivery, setExpectedDelivery] = useState("");
   const [notes, setNotes] = useState("");
-  const [itemsState, setItemsState] = useState<{ id: string; productName: string; productCode: string; productUnit: string; orderedQty: number }[]>([]);
+  const [itemsState, setItemsState] = useState<
+    Array<{
+      id: string;
+      productId: string;
+      productName: string;
+      productCode: string;
+      productUnit: string;
+      orderedQty: number;
+      unitPrice: number;
+      conversionFactor: number;
+      orderedUnit: string;
+      notes: string;
+    }>
+  >([]);
   const [loading, setLoading] = useState(false);
   const [lookupsLoading, setLookupsLoading] = useState(false);
 
   // Lookups data
   const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
 
   useEffect(() => {
     if (po && isOpen) {
@@ -39,19 +54,64 @@ export function EditPurchaseOrderModal({ isOpen, onClose, onSuccess, po, userId 
       setItemsState(
         po.items ? po.items.map((item) => ({
           id: item.id,
+          productId: item.productId,
           productName: item.productName,
           productCode: item.productCode,
-          productUnit: item.productUnit,
+          productUnit: item.productBaseUnit || item.productUnit,
           orderedQty: item.orderedQty,
+          unitPrice: parseFloat(item.unitPrice),
+          conversionFactor: item.conversionFactor || 1,
+          orderedUnit: item.orderedUnit || item.productUnit,
+          notes: item.notes || "",
         })) : []
       );
     }
   }, [po, isOpen]);
 
-  const handleQtyChange = (index: number, val: number) => {
+  const handleProductChange = (index: number, selectedProductId: string) => {
+    const product = products.find((p) => p.id === selectedProductId);
+    if (!product) return;
+
+    const variant = product.variants?.find((v: any) => v.supplierId === supplierId);
+    const basePrice = variant ? Number(variant.purchasePrice) : 0;
+    const defaultUnit = product.purchaseUnit || product.unit;
+    const factor = product.purchaseUnit ? Number(product.purchaseConversionFactor) : 1;
+    const unitPrice = basePrice * factor;
+
     const updated = [...itemsState];
-    updated[index].orderedQty = val;
+    updated[index] = {
+      ...updated[index],
+      productId: selectedProductId,
+      productName: product.name,
+      productCode: product.code,
+      productUnit: product.unit,
+      orderedUnit: defaultUnit,
+      conversionFactor: factor,
+      unitPrice: unitPrice,
+    };
     setItemsState(updated);
+  };
+
+  const handleAddItem = () => {
+    setItemsState([
+      ...itemsState,
+      {
+        id: "",
+        productId: "",
+        productName: "",
+        productCode: "",
+        productUnit: "PCS",
+        orderedQty: 1,
+        unitPrice: 0,
+        conversionFactor: 1,
+        orderedUnit: "PCS",
+        notes: "",
+      },
+    ]);
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setItemsState(itemsState.filter((_, idx) => idx !== index));
   };
 
   // Fetch lookups when the form opens
@@ -62,6 +122,7 @@ export function EditPurchaseOrderModal({ isOpen, onClose, onSuccess, po, userId 
           setLookupsLoading(true);
           const res = await getPurchaseLookups();
           setSuppliers(res.suppliers || []);
+          setProducts(res.products || []);
         } catch (err) {
           console.error("Failed to load PO lookups", err);
           toast.error("Failed to load supplier dropdown data.");
@@ -78,6 +139,17 @@ export function EditPurchaseOrderModal({ isOpen, onClose, onSuccess, po, userId 
       return;
     }
 
+    if (po.status === "DRAFT") {
+      if (itemsState.length === 0) {
+        toast.error("Please add at least one line item");
+        return;
+      }
+      if (itemsState.some((item) => !item.productId)) {
+        toast.error("Please select a product for all line items");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       await updatePurchaseOrder(
@@ -87,8 +159,13 @@ export function EditPurchaseOrderModal({ isOpen, onClose, onSuccess, po, userId 
           expectedDate: expectedDelivery ? new Date(expectedDelivery) : undefined,
           notes: notes || undefined,
           items: po.status === "DRAFT" ? itemsState.map((item) => ({
-            id: item.id,
+            id: item.id || undefined,
+            productId: item.productId,
             orderedQty: item.orderedQty,
+            unitPrice: item.unitPrice,
+            orderedUnit: item.orderedUnit as any,
+            conversionFactor: item.conversionFactor,
+            notes: item.notes || undefined,
           })) : undefined,
         },
         userId
@@ -162,35 +239,98 @@ export function EditPurchaseOrderModal({ isOpen, onClose, onSuccess, po, userId 
             />
           </div>
 
-          {po.status === "DRAFT" && itemsState.length > 0 && (
-            <div className="space-y-2 pt-2">
-              <label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block border-b pb-1.5 border-zinc-150">
-                Order Line Items
-              </label>
-              <div className="space-y-2.5 max-h-[160px] overflow-y-auto pr-1">
-                {itemsState.map((item, idx) => (
-                  <div key={item.id} className="flex items-center justify-between gap-4 p-2.5 rounded-xl border border-zinc-200 bg-zinc-50/50">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-zinc-800 truncate">{item.productName}</p>
-                      <p className="text-[10px] text-zinc-400 font-mono mt-0.5">{item.productCode}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="w-24">
-                        <label className="text-[9px] uppercase tracking-wider font-bold text-zinc-400 block mb-0.5">Quantity</label>
-                        <Input
-                          type="number"
-                          value={item.orderedQty}
-                          onChange={(e) => handleQtyChange(idx, parseInt(e.target.value) || 1)}
-                          min={1}
-                          disabled={loading}
-                          className="h-8 text-xs bg-white border-zinc-300 text-zinc-900 focus:ring-blue-500/20"
+          {po.status === "DRAFT" && (
+            <div className="space-y-2 pt-2 flex flex-col">
+              <div className="flex justify-between items-center border-b pb-1.5 border-zinc-150">
+                <label className="text-xs font-semibold text-zinc-500 tracking-wider uppercase block">
+                  Order Line Items
+                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddItem}
+                  className="h-7 px-2 text-xs flex items-center gap-1 border-zinc-350 hover:bg-zinc-50"
+                >
+                  <Plus size={12} /> Add Item
+                </Button>
+              </div>
+              
+              {itemsState.length === 0 ? (
+                <div className="text-center py-4 border border-dashed border-zinc-350 rounded-xl bg-zinc-50/20">
+                  <p className="text-xs text-zinc-400 italic">No line items added yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin">
+                  {itemsState.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="grid grid-cols-12 gap-2.5 items-end p-3 border border-zinc-200 rounded-xl bg-zinc-50/20 relative shadow-sm hover:border-zinc-300 transition-colors"
+                    >
+                      {/* Product Autocomplete */}
+                      <div className="col-span-12 sm:col-span-5">
+                        <label className="text-[9px] font-semibold text-zinc-500 block mb-0.5">Product *</label>
+                        <ProductAutocomplete
+                          products={products}
+                          value={item.productId}
+                          onChange={(productId) => handleProductChange(idx, productId)}
+                          placeholder="Search product..."
                         />
                       </div>
-                      <span className="text-[10px] text-zinc-500 font-medium self-end pb-1.5">{item.productUnit}</span>
+                      
+                      {/* Quantity */}
+                      <div className="col-span-4 sm:col-span-2">
+                        <label className="text-[9px] font-semibold text-zinc-500 block mb-0.5">Qty</label>
+                        <Input
+                          type="number"
+                          step="any"
+                          value={item.orderedQty}
+                          onChange={(e) => {
+                            const updated = [...itemsState];
+                            updated[idx].orderedQty = Math.max(0.0001, parseFloat(e.target.value) || 0);
+                            setItemsState(updated);
+                          }}
+                          min={0.0001}
+                          disabled={loading}
+                          className="h-9 text-xs bg-white border-zinc-300 text-zinc-900 text-center"
+                        />
+                      </div>
+
+                      {/* Unit Price */}
+                      <div className="col-span-5 sm:col-span-3">
+                        <label className="text-[9px] font-semibold text-zinc-500 block mb-0.5">Price (NPR)</label>
+                        <Input
+                          type="number"
+                          step="any"
+                          value={item.unitPrice}
+                          onChange={(e) => {
+                            const updated = [...itemsState];
+                            updated[idx].unitPrice = Math.max(0, parseFloat(e.target.value) || 0);
+                            setItemsState(updated);
+                          }}
+                          min={0}
+                          disabled={loading}
+                          className="h-9 text-xs font-mono bg-white border-zinc-300 text-center"
+                        />
+                      </div>
+
+                      {/* Delete Button */}
+                      <div className="col-span-3 sm:col-span-2 flex justify-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 text-rose-600 hover:text-rose-750 hover:bg-rose-50 border border-rose-100 rounded-lg"
+                          disabled={loading}
+                          onClick={() => handleRemoveItem(idx)}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
