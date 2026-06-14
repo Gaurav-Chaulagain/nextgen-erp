@@ -124,6 +124,13 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
     {
       accessorKey: "poNumber",
       header: "PO #",
+      filterFn: (row, columnId, filterValue) => {
+        const query = String(filterValue).toLowerCase().trim();
+        if (!query) return true;
+        const poNumber = (row.original.poNumber || "").toLowerCase();
+        const supplierName = (row.original.supplierName || "").toLowerCase();
+        return poNumber.includes(query) || supplierName.includes(query);
+      },
       cell: ({ row }) => (
         <span className="font-mono text-sm font-bold text-zinc-900 hover:underline">{row.original.poNumber}</span>
       ),
@@ -309,7 +316,12 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
 
   return (
     <>
-      <DataTable columns={columns} data={orders} />
+      <DataTable
+        columns={columns}
+        data={orders}
+        searchPlaceholder="Search purchase orders..."
+        searchColumnId="poNumber"
+      />
 
       {/* Receive Goods Modal */}
       {selectedPO && showReceive && (

@@ -158,28 +158,72 @@ export async function updatePurchaseOrder(id: string, data: UpdatePurchaseOrderI
 
   const result = await db.$transaction(async (tx) => {
     // 1. If items are updated (only allowed for DRAFT POs)
-    if (parsed.items && parsed.items.length > 0) {
+    if (parsed.items) {
       if (po.status !== "DRAFT") {
         throw new Error("Can only edit items of a draft purchase order");
       }
+      if (parsed.items.length === 0) {
+        throw new Error("Purchase Order must have at least one line item");
+      }
 
-      for (const item of parsed.items) {
-        const unitPrice = item.unitPrice !== undefined ? toDecimal(item.unitPrice) : undefined;
-        const currentItem = await tx.purchaseOrderItem.findUnique({
-          where: { id: item.id }
+      // Identify existing database item IDs for this PO
+      const existingItems = await tx.purchaseOrderItem.findMany({
+        where: { purchaseOrderId: id },
+        select: { id: true },
+      });
+      const existingIds = existingItems.map((item: any) => item.id);
+
+      // Identify which database records to delete
+      const incomingIds = parsed.items
+        .map((item: any) => item.id)
+        .filter(Boolean) as string[];
+      const idsToDelete = existingIds.filter((id) => !incomingIds.includes(id));
+
+      if (idsToDelete.length > 0) {
+        await tx.purchaseOrderItem.deleteMany({
+          where: { id: { in: idsToDelete } },
         });
-        
-        if (currentItem) {
-          const activePrice = unitPrice ?? toDecimal(currentItem.unitPrice);
-          const totalPrice = activePrice.times(item.orderedQty);
-          
+      }
+
+      // Update existing ones or create new ones
+      for (const item of parsed.items) {
+        if (item.id) {
+          const currentItem = await tx.purchaseOrderItem.findUnique({
+            where: { id: item.id }
+          });
+          const activePrice = item.unitPrice !== undefined ? toDecimal(item.unitPrice) : toDecimal(currentItem?.unitPrice);
+          const activeFactor = toDecimal(item.conversionFactor ?? currentItem?.conversionFactor ?? 1);
+          const baseQtyEquivalent = toDecimal(item.orderedQty).times(activeFactor);
+
           await tx.purchaseOrderItem.update({
             where: { id: item.id },
             data: {
               orderedQty: item.orderedQty,
               unitPrice: activePrice,
-              totalPrice,
-              baseQtyEquivalent: new Decimal(item.orderedQty).times(currentItem.conversionFactor ?? 1),
+              totalPrice: activePrice.times(item.orderedQty),
+              orderedUnit: item.orderedUnit || currentItem?.orderedUnit || null,
+              conversionFactor: activeFactor,
+              baseQtyEquivalent,
+              notes: item.notes !== undefined ? item.notes : currentItem?.notes,
+            }
+          });
+        } else if (item.productId) {
+          const activePrice = toDecimal(item.unitPrice);
+          const activeFactor = toDecimal(item.conversionFactor ?? 1);
+          const baseQtyEquivalent = toDecimal(item.orderedQty).times(activeFactor);
+
+          await tx.purchaseOrderItem.create({
+            data: {
+              purchaseOrderId: id,
+              productId: item.productId,
+              orderedQty: item.orderedQty,
+              receivedQty: 0,
+              unitPrice: activePrice,
+              totalPrice: activePrice.times(item.orderedQty),
+              orderedUnit: item.orderedUnit || null,
+              conversionFactor: activeFactor,
+              baseQtyEquivalent,
+              notes: item.notes || null,
             }
           });
         }

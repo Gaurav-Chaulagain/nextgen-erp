@@ -47,6 +47,13 @@ export function InvoiceTable({ invoices }: InvoiceTableProps) {
     {
       accessorKey: "customerName",
       header: "Customer",
+      filterFn: (row, columnId, filterValue) => {
+        const query = String(filterValue).toLowerCase().trim();
+        if (!query) return true;
+        const customerName = (row.original.customerName || "").toLowerCase();
+        const invoiceNumber = (row.original.invoiceNumber || "").toLowerCase();
+        return customerName.includes(query) || invoiceNumber.includes(query);
+      },
       cell: ({ row }) => (
         <div>
           <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">{row.original.customerName}</p>

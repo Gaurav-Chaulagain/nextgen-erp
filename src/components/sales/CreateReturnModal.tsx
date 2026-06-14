@@ -163,10 +163,11 @@ export function CreateReturnModal({ open, onOpenChange, invoice }: CreateReturnM
                       <label className="text-[9px] text-zinc-500 uppercase font-semibold block">Return Qty</label>
                       <Input
                         type="number"
+                        step="any"
                         min={0}
                         max={item.qty}
                         value={currentQty === 0 ? "" : currentQty}
-                        onChange={(e) => handleQtyChange(item.id, Math.min(item.qty, Math.max(0, parseInt(e.target.value) || 0)))}
+                        onChange={(e) => handleQtyChange(item.id, Math.min(item.qty, Math.max(0, parseFloat(e.target.value) || 0)))}
                         className="h-8 text-xs bg-white border-zinc-300 text-zinc-900 text-center shadow-sm focus:border-rose-500"
                       />
                     </div>

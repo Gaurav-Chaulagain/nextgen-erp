@@ -37,9 +37,13 @@ export const updatePurchaseOrderSchema = z.object({
   items: z
     .array(
       z.object({
-        id: z.string().min(1),
+        id: z.string().optional().nullable(),
+        productId: z.string().optional().nullable(),
         orderedQty: z.number().positive(),
         unitPrice: moneyInput.optional(),
+        orderedUnit: z.nativeEnum(Unit).optional().nullable(),
+        conversionFactor: z.number().positive().optional().nullable(),
+        notes: z.string().optional().nullable(),
       })
     )
     .optional(),

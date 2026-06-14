@@ -21,6 +21,7 @@ import { createPurchaseOrderSchema } from "@/modules/purchase/types";
 import { toast } from "sonner";
 import { Plus, Trash2, Calendar, FileText, ShoppingBag } from "lucide-react";
 import { DualDatePicker } from "@/components/shared/DualDatePicker";
+import { ProductAutocomplete } from "@/components/shared/ProductAutocomplete";
 
 interface LineItem {
   id: string;
@@ -379,20 +380,14 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                               + Create Product
                             </a>
                           </div>
-                          <select
+                          <ProductAutocomplete
+                            products={products}
                             value={item.productId}
-                            onChange={(e) =>
-                              handleProductChange(item.id, e.target.value)
+                            onChange={(selectedId) =>
+                              handleProductChange(item.id, selectedId)
                             }
-                            className="w-full h-9 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
-                          >
-                            <option value="">-- Select Product --</option>
-                            {products.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                [{p.code}] {p.name}
-                              </option>
-                            ))}
-                          </select>
+                            placeholder="Select Product"
+                          />
                         </div>
 
                         {/* Quantity input */}
