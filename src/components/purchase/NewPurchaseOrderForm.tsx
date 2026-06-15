@@ -366,7 +366,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                         className="grid grid-cols-12 gap-3 items-end p-4 border border-zinc-200 rounded-xl bg-white relative shadow-sm hover:border-zinc-300 transition-colors duration-150"
                       >
                         {/* Product select */}
-                        <div className="col-span-12 sm:col-span-3">
+                        <div className="col-span-12 md:col-span-6 lg:col-span-4">
                           <div className="flex justify-between items-center mb-1">
                             <label className="text-[10px] font-semibold text-zinc-500 block">
                               Product *
@@ -391,7 +391,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                         </div>
 
                         {/* Quantity input */}
-                        <div className="col-span-6 sm:col-span-1.5">
+                        <div className="col-span-4 md:col-span-2 lg:col-span-1">
                           <label className="text-[10px] font-semibold text-zinc-500 block mb-1">
                             Quantity *
                           </label>
@@ -414,7 +414,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                         </div>
 
                         {/* Unit select dropdown */}
-                        <div className="col-span-6 sm:col-span-1.5">
+                        <div className="col-span-4 md:col-span-2 lg:col-span-1">
                           <label className="text-[10px] font-semibold text-zinc-500 block mb-1">
                             Unit
                           </label>
@@ -425,7 +425,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                             className="w-full h-9 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm disabled:bg-zinc-50 disabled:text-zinc-400"
                           >
                             {!item.productId ? (
-                              <option value="">—</option>
+                               <option value="">—</option>
                             ) : (
                               (() => {
                                 const allowedUnits = new Set<string>();
@@ -445,7 +445,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                         </div>
 
                         {/* Conversion Factor */}
-                        <div className="col-span-6 sm:col-span-1.5">
+                        <div className="col-span-4 md:col-span-2 lg:col-span-1">
                           <div className="flex justify-between items-center mb-1">
                             <label className="text-[10px] font-semibold text-zinc-500 block">
                               Conversion Factor
@@ -466,7 +466,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                         </div>
 
                         {/* Unit Price */}
-                        <div className="col-span-6 sm:col-span-1.5">
+                        <div className="col-span-6 md:col-span-3 lg:col-span-1">
                           <label className="text-[10px] font-semibold text-zinc-500 block mb-1">
                             Unit Price (NPR)
                           </label>
@@ -485,7 +485,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                         </div>
 
                         {/* Line Specifications */}
-                        <div className="col-span-10 sm:col-span-2">
+                        <div className="col-span-10 md:col-span-7 lg:col-span-3">
                           <label className="text-[10px] font-semibold text-zinc-500 block mb-1">
                             Line Specifications / Notes
                           </label>
@@ -500,7 +500,7 @@ export function NewPurchaseOrderForm({ userId }: NewPurchaseOrderFormProps) {
                         </div>
 
                         {/* Action */}
-                        <div className="col-span-2 sm:col-span-0.5 flex flex-col justify-end items-center">
+                        <div className="col-span-2 md:col-span-2 lg:col-span-1 flex flex-col justify-end items-center">
                           <Button
                             type="button"
                             variant="ghost"
