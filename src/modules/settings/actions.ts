@@ -433,7 +433,14 @@ export async function exportAllDataAction() {
     fixedAssets,
     depreciation,
     fiscalYears,
-    auditLogs
+    auditLogs,
+    expenses,
+    projectBillings,
+    purchaseReturns,
+    purchaseReturnItems,
+    salesReturns,
+    salesReturnItems,
+    businessSettings
   ] = await Promise.all([
     db.user.findMany(),
     db.warehouse.findMany(),
@@ -457,6 +464,13 @@ export async function exportAllDataAction() {
     db.depreciationEntry.findMany(),
     db.fiscalYear.findMany(),
     db.auditLog.findMany({ take: 200, orderBy: { createdAt: "desc" } }), // Cap logs in dump
+    db.expense.findMany(),
+    db.projectBilling.findMany(),
+    db.purchaseReturn.findMany(),
+    db.purchaseReturnItem.findMany(),
+    db.salesReturn.findMany(),
+    db.salesReturnItem.findMany(),
+    db.businessSettings.findMany(),
   ]);
 
   const backupObject = {
@@ -485,6 +499,13 @@ export async function exportAllDataAction() {
       depreciation,
       fiscalYears,
       auditLogs,
+      expenses,
+      projectBillings,
+      purchaseReturns,
+      purchaseReturnItems,
+      salesReturns,
+      salesReturnItems,
+      businessSettings,
     },
   };
 

@@ -6,7 +6,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 
 // Locate the backup file path
-const defaultBackupPath = "/home/rabin/Documents/NextGenERP/NextGenERP_FullBackup_2026-06-14.json";
+const defaultBackupPath = "/home/rabin/Documents/NextGenERP/NextGenERP_FullBackup_2026-06-15.json";
 const argPath = process.argv[2];
 const BACKUP_PATH = argPath ? path.resolve(argPath) : defaultBackupPath;
 

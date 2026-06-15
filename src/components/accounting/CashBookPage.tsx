@@ -138,7 +138,7 @@ export function CashBookPage() {
       header: "Narration Remarks",
       cell: ({ row }) => (
         <div>
-          <div className="font-semibold text-zinc-800 dark:text-zinc-200 max-w-[320px] truncate">
+          <div className="font-semibold text-zinc-800 dark:text-zinc-200 max-w-[400px] break-words whitespace-normal">
             {row.getValue("description") || "-"}
           </div>
           {row.original.partyType && (
