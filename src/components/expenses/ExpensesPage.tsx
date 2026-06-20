@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,9 @@ import {
   CalendarDays,
   FileSpreadsheet,
   FileText,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   Dialog,
@@ -44,6 +47,14 @@ interface Expense {
 
 interface ExpensesPageProps {
   expenses: Expense[];
+  availableMonths: string[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
+  searchQuery: string;
+  selectedMonthFilter: string | null;
   stats: {
     totalThisMonth: string;
     breakdown: Array<{ category: string; amount: string }>;
@@ -216,27 +227,71 @@ function downloadPDF(rows: Expense[], monthLabel: string) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function ExpensesPage({ expenses, stats, userId }: ExpensesPageProps) {
+export function ExpensesPage({
+  expenses,
+  availableMonths,
+  pagination,
+  searchQuery,
+  selectedMonthFilter,
+  stats,
+  userId,
+}: ExpensesPageProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  // Month filter: default = current month
   const currentMonthKey = getMonthKey(new Date().toISOString());
-  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthKey);
+  const [selectedMonth, setSelectedMonth] = useState<string>(selectedMonthFilter || currentMonthKey);
+  const [localSearch, setLocalSearch] = useState(searchQuery);
 
-  // Derive unique months from all expenses (desc)
-  const availableMonths = useMemo(() => {
-    const keys = Array.from(new Set(expenses.map((e) => getMonthKey(e.expenseDate))));
-    return keys.sort((a, b) => b.localeCompare(a));
-  }, [expenses]);
+  useEffect(() => {
+    setSelectedMonth(selectedMonthFilter || currentMonthKey);
+  }, [selectedMonthFilter, currentMonthKey]);
 
-  // Filtered expenses for the selected month (or all)
-  const filteredExpenses = useMemo(() => {
-    if (selectedMonth === "all") return expenses;
-    return expenses.filter((e) => getMonthKey(e.expenseDate) === selectedMonth);
-  }, [expenses, selectedMonth]);
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
 
-  // Monthly total for selected month
+  useEffect(() => {
+    const urlSearch = new URLSearchParams(window.location.search).get("search") ?? "";
+    if (localSearch === urlSearch) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const current = new URLSearchParams(window.location.search);
+      if (localSearch) {
+        current.set("search", localSearch);
+      } else {
+        current.delete("search");
+      }
+      current.set("page", "1"); // Reset to page 1 on search
+      router.push(`${window.location.pathname}?${current.toString()}`);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [localSearch, router]);
+
+  const handleMonthChange = (val: string) => {
+    setSelectedMonth(val);
+    const current = new URLSearchParams(window.location.search);
+    if (val && val !== "all") {
+      current.set("month", val);
+    } else {
+      current.delete("month");
+    }
+    current.set("page", "1"); // Reset to page 1 on month change
+    router.push(`${window.location.pathname}?${current.toString()}`);
+  };
+
+  const handlePageChange = (pageIndex: number) => {
+    const current = new URLSearchParams(window.location.search);
+    current.set("page", String(pageIndex + 1));
+    router.push(`${window.location.pathname}?${current.toString()}`);
+  };
+
+  // With server-side pagination/filtering, expenses is already pre-filtered
+  const filteredExpenses = expenses;
+
   const filteredTotal = useMemo(
     () => filteredExpenses.reduce((s, e) => s + Number(e.amount), 0),
     [filteredExpenses]
@@ -375,12 +430,23 @@ export function ExpensesPage({ expenses, stats, userId }: ExpensesPageProps) {
 
           {/* Controls */}
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Search Input */}
+            <div className="relative flex-1 sm:flex-none sm:w-48">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
+              <Input
+                placeholder="Search expenses..."
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
+                className="pl-8 h-9 w-full rounded-lg bg-zinc-50 border-zinc-200 focus:bg-white dark:bg-zinc-900/40 dark:border-zinc-800 text-xs"
+              />
+            </div>
+
             {/* Month selector */}
             <div className="relative flex items-center gap-1.5">
               <CalendarDays size={15} className="text-zinc-400 absolute left-2.5 pointer-events-none" />
               <select
                 value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
+                onChange={(e) => handleMonthChange(e.target.value)}
                 className="h-9 pl-8 pr-3 rounded-lg border border-zinc-300 bg-white text-sm text-zinc-700 focus:outline-none focus:ring-2 focus:ring-rose-400/40 focus:border-rose-400 shadow-sm cursor-pointer"
               >
                 <option value="all">All Months</option>
@@ -541,6 +607,34 @@ export function ExpensesPage({ expenses, stats, userId }: ExpensesPageProps) {
             )}
           </table>
         </div>
+        {/* Pagination Controls */}
+        {pagination && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2 mt-4 border-t pt-4">
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+              Showing Page {pagination.page} of {Math.max(1, Math.ceil(pagination.total / pagination.pageSize))} (Total {pagination.total} records)
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.page - 2)}
+                disabled={pagination.page === 1}
+                className="h-9 w-9 p-0 border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.page)}
+                disabled={pagination.page >= Math.ceil(pagination.total / pagination.pageSize)}
+                className="h-9 w-9 p-0 border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ── View Details Modal ── */}

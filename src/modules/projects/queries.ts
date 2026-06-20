@@ -1,7 +1,7 @@
 import { getDb } from "@/lib/db";
 import Decimal from "decimal.js";
 import { z } from "zod";
-import { serializeForClient } from "@/lib/utils";
+import { serializeForClient, parseAdditionalExpensesFromNotes } from "@/lib/utils";
 import type { ProjectStatus } from "./types";
 import {
   projectSchema,
@@ -271,21 +271,130 @@ export async function getProjectStats() {
   );
 }
 
-export async function getProjectProfitability(projectId?: string) {
+type GetProjectProfitabilityOptions = {
+  projectId?: string | null;
+  status?: ProjectStatus | null;
+  search?: string | null;
+  page?: number;
+  pageSize?: number;
+};
+
+export async function getProjectProfitability(opts: GetProjectProfitabilityOptions = {}) {
+  const { projectId = null, status = null, search = null, page = 1, pageSize = 25 } = opts;
   const db = await getDb();
+
   const where: any = {};
   if (projectId) where.id = projectId;
+  if (status) where.status = status;
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { projectCode: { contains: search, mode: "insensitive" } },
+      { client: { name: { contains: search, mode: "insensitive" } } },
+    ];
+  }
 
-  const projects = await db.project.findMany({
-    where,
-    include: {
-      client: true,
-      salesInvoices: {
-        where: { status: { not: "CANCELLED" } },
+  if (projectId) {
+    const projects = await db.project.findMany({
+      where,
+      include: {
+        client: true,
+        salesInvoices: {
+          where: { status: { not: "CANCELLED" } },
+        },
       },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+      orderBy: { createdAt: "desc" },
+    });
+
+    const data = await Promise.all(
+      projects.map(async (p) => {
+        const invoiceIds = p.salesInvoices.map((inv) => inv.id);
+        
+        const stockTxns = invoiceIds.length
+          ? await db.stockTransaction.findMany({
+              where: {
+                referenceType: "SALES_INVOICE",
+                referenceId: { in: invoiceIds },
+                type: "PROJECT_ISSUE",
+              },
+            })
+          : [];
+
+        const totalCost = stockTxns.reduce(
+          (sum, tx) => sum.plus(new Decimal(tx.unitCost).times(tx.quantity.abs())),
+          new Decimal(0)
+        );
+
+        const totalBilled = p.salesInvoices.reduce(
+          (sum, inv) => sum.plus(new Decimal(inv.totalAmount)),
+          new Decimal(0)
+        );
+
+        const grossProfit = p.contractAmount.minus(totalBilled);
+        const marginPercent = p.contractAmount.greaterThan(0)
+          ? grossProfit.div(p.contractAmount).times(100)
+          : new Decimal(0);
+
+        let transportCost = new Decimal(0);
+        let labourCost = new Decimal(0);
+        let miscCost = new Decimal(0);
+
+        for (const inv of p.salesInvoices) {
+          const expenses = parseAdditionalExpensesFromNotes(inv.notes);
+          for (const exp of expenses) {
+            const amt = new Decimal(exp.amount);
+            if (exp.type.toLowerCase() === "transport") {
+              transportCost = transportCost.plus(amt);
+            } else if (exp.type.toLowerCase() === "labour") {
+              labourCost = labourCost.plus(amt);
+            } else {
+              miscCost = miscCost.plus(amt);
+            }
+          }
+        }
+
+        return {
+          projectId: p.id,
+          projectCode: p.projectCode,
+          projectName: p.name,
+          clientId: p.clientId,
+          clientName: p.client.name,
+          status: p.status,
+          contractAmount: p.contractAmount.toString(),
+          totalBilled: totalBilled.toString(),
+          totalCost: totalCost.toString(),
+          transportCost: transportCost.toString(),
+          labourCost: labourCost.toString(),
+          miscCost: miscCost.toString(),
+          grossProfit: grossProfit.toString(),
+          marginPercent: marginPercent.toFixed(1),
+          startDate: p.startDate?.toISOString() ?? null,
+          endDate: p.endDate?.toISOString() ?? null,
+        };
+      })
+    );
+
+    return serializeForClient({
+      data: zArrayParser(projectProfitabilitySchema, data),
+      pagination: { page: 1, pageSize: 25, total: data.length },
+    });
+  }
+
+  const [projects, total] = await Promise.all([
+    db.project.findMany({
+      where,
+      include: {
+        client: true,
+        salesInvoices: {
+          where: { status: { not: "CANCELLED" } },
+        },
+      },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      orderBy: { createdAt: "desc" },
+    }),
+    db.project.count({ where }),
+  ]);
 
   const data = await Promise.all(
     projects.map(async (p) => {
@@ -316,6 +425,24 @@ export async function getProjectProfitability(projectId?: string) {
         ? grossProfit.div(p.contractAmount).times(100)
         : new Decimal(0);
 
+      let transportCost = new Decimal(0);
+      let labourCost = new Decimal(0);
+      let miscCost = new Decimal(0);
+
+      for (const inv of p.salesInvoices) {
+        const expenses = parseAdditionalExpensesFromNotes(inv.notes);
+        for (const exp of expenses) {
+          const amt = new Decimal(exp.amount);
+          if (exp.type.toLowerCase() === "transport") {
+            transportCost = transportCost.plus(amt);
+          } else if (exp.type.toLowerCase() === "labour") {
+            labourCost = labourCost.plus(amt);
+          } else {
+            miscCost = miscCost.plus(amt);
+          }
+        }
+      }
+
       return {
         projectId: p.id,
         projectCode: p.projectCode,
@@ -326,6 +453,9 @@ export async function getProjectProfitability(projectId?: string) {
         contractAmount: p.contractAmount.toString(),
         totalBilled: totalBilled.toString(),
         totalCost: totalCost.toString(),
+        transportCost: transportCost.toString(),
+        labourCost: labourCost.toString(),
+        miscCost: miscCost.toString(),
         grossProfit: grossProfit.toString(),
         marginPercent: marginPercent.toFixed(1),
         startDate: p.startDate?.toISOString() ?? null,
@@ -334,7 +464,10 @@ export async function getProjectProfitability(projectId?: string) {
     })
   );
 
-  return serializeForClient(zArrayParser(projectProfitabilitySchema, data));
+  return serializeForClient({
+    data: zArrayParser(projectProfitabilitySchema, data),
+    pagination: { page, pageSize, total },
+  });
 }
 
 export async function getMaterialUsage(projectId: string) {

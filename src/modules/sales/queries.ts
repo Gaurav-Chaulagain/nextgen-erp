@@ -24,6 +24,7 @@ type GetSalesInvoicesOptions = {
   dateTo?: Date | null;
   page?: number;
   pageSize?: number;
+  search?: string | null;
 };
 
 type SalesDateRange = {
@@ -129,7 +130,7 @@ function mapCustomer(customer: any) {
 }
 
 export async function getSalesInvoices(opts: GetSalesInvoicesOptions = {}) {
-  const { channel = null, customerId = null, status = null, dateFrom = null, dateTo = null, page = 1, pageSize = 25 } = opts;
+  const { channel = null, customerId = null, status = null, dateFrom = null, dateTo = null, page = 1, pageSize = 25, search = null } = opts;
   const db = await getDb();
 
   const where: any = {};
@@ -140,6 +141,12 @@ export async function getSalesInvoices(opts: GetSalesInvoicesOptions = {}) {
     where.invoiceDate = {};
     if (dateFrom) where.invoiceDate.gte = dateFrom;
     if (dateTo) where.invoiceDate.lte = dateTo;
+  }
+  if (search) {
+    where.OR = [
+      { invoiceNumber: { contains: search, mode: "insensitive" } },
+      { customer: { name: { contains: search, mode: "insensitive" } } },
+    ];
   }
 
   const [invoices, total] = await Promise.all([
@@ -296,41 +303,65 @@ export async function getCustomerById(id: string) {
   });
 }
 
-export async function getOutstandingDues() {
+type GetOutstandingDuesOptions = {
+  search?: string | null;
+  page?: number;
+  pageSize?: number;
+};
+
+export async function getOutstandingDues(opts: GetOutstandingDuesOptions = {}) {
+  const { search = null, page = 1, pageSize = 25 } = opts;
   const db = await getDb();
-  const customers = await db.customer.findMany({
-    where: {
-      isActive: true,
-      salesInvoices: {
-        some: { status: { in: ["SENT", "PARTIAL", "OVERDUE"] }, balanceAmount: { gt: 0 } },
-      },
+  
+  const where: any = {
+    isActive: true,
+    salesInvoices: {
+      some: { status: { in: ["SENT", "PARTIAL", "OVERDUE"] }, balanceAmount: { gt: 0 } },
     },
+  };
+
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { code: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  const total = await db.customer.count({ where });
+
+  const customers = await db.customer.findMany({
+    where,
     include: { salesInvoices: { where: { status: { not: "CANCELLED" } }, orderBy: { invoiceDate: "desc" } } },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
   });
 
-  return serializeForClient(
-    customers
-      .map((customer) => {
-        const totalBilled = customer.salesInvoices.reduce((sum, invoice) => sum.plus(invoice.totalAmount), new Decimal(0));
-        const totalPaid = customer.salesInvoices.reduce((sum, invoice) => sum.plus(invoice.paidAmount), new Decimal(0));
-        const balance = customer.salesInvoices.reduce((sum, invoice) => sum.plus(invoice.balanceAmount), new Decimal(0));
-        const lastInvoice = customer.salesInvoices[0];
-        const overdueBasis = lastInvoice?.dueDate ?? lastInvoice?.invoiceDate ?? null;
-        const daysOverdue = overdueBasis ? Math.max(0, Math.floor((Date.now() - overdueBasis.getTime()) / 86_400_000)) : 0;
+  const dues = customers
+    .map((customer) => {
+      const totalBilled = customer.salesInvoices.reduce((sum, invoice) => sum.plus(invoice.totalAmount), new Decimal(0));
+      const totalPaid = customer.salesInvoices.reduce((sum, invoice) => sum.plus(invoice.paidAmount), new Decimal(0));
+      const balance = customer.salesInvoices.reduce((sum, invoice) => sum.plus(invoice.balanceAmount), new Decimal(0));
+      const lastInvoice = customer.salesInvoices[0];
+      const overdueBasis = lastInvoice?.dueDate ?? lastInvoice?.invoiceDate ?? null;
+      const daysOverdue = overdueBasis ? Math.max(0, Math.floor((Date.now() - overdueBasis.getTime()) / 86_400_000)) : 0;
 
-        return outstandingDueSchema.parse({
-          customerId: customer.id,
-          customerName: customer.name,
-          customerType: customer.customerType,
-          totalBilled: totalBilled.toString(),
-          totalPaid: totalPaid.toString(),
-          balance: balance.toString(),
-          lastInvoiceDate: lastInvoice?.invoiceDate.toISOString() ?? null,
-          daysOverdue,
-        });
-      })
-      .sort((a, b) => Number(b.balance) - Number(a.balance))
-  );
+      return outstandingDueSchema.parse({
+        customerId: customer.id,
+        customerName: customer.name,
+        customerType: customer.customerType,
+        totalBilled: totalBilled.toString(),
+        totalPaid: totalPaid.toString(),
+        balance: balance.toString(),
+        lastInvoiceDate: lastInvoice?.invoiceDate.toISOString() ?? null,
+        daysOverdue,
+      });
+    })
+    .sort((a, b) => Number(b.balance) - Number(a.balance));
+
+  return serializeForClient({
+    data: dues,
+    pagination: { page, pageSize, total },
+  });
 }
 
 export async function getRevenueByChannel(month: number, year: number) {
@@ -406,10 +437,27 @@ export async function getCustomerLedger(customerId: string, dateFrom?: Date, dat
   return serializeForClient(sorted);
 }
 
-export async function getSalesReturns(page = 1, pageSize = 25) {
+type GetSalesReturnsOptions = {
+  search?: string | null;
+  page?: number;
+  pageSize?: number;
+};
+
+export async function getSalesReturns(opts: GetSalesReturnsOptions = {}) {
+  const { search = null, page = 1, pageSize = 25 } = opts;
   const db = await getDb();
+
+  const where: any = {};
+  if (search) {
+    where.OR = [
+      { returnNumber: { contains: search, mode: "insensitive" } },
+      { customer: { name: { contains: search, mode: "insensitive" } } },
+    ];
+  }
+
   const [returns, total] = await Promise.all([
     db.salesReturn.findMany({
+      where,
       include: {
         invoice: true,
         customer: true,
@@ -421,7 +469,7 @@ export async function getSalesReturns(page = 1, pageSize = 25) {
       take: pageSize,
       orderBy: { returnDate: "desc" },
     }),
-    db.salesReturn.count(),
+    db.salesReturn.count({ where }),
   ]);
 
   return serializeForClient({

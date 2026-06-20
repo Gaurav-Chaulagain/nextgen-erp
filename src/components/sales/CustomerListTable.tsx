@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
-import { Search, BookOpen, Pencil, Trash2, AlertTriangle, Loader2 } from "lucide-react";
+import { Search, BookOpen, Pencil, Trash2, AlertTriangle, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { CustomerLedgerModal } from "./CustomerLedgerModal";
 import { EditCustomerModal } from "./EditCustomerModal";
 import { deleteCustomer, updateCustomer } from "@/modules/sales/actions";
@@ -32,18 +32,58 @@ interface CustomerData {
 
 interface CustomerListTableProps {
   customers: CustomerData[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
+  searchQuery: string;
 }
 
-export function CustomerListTable({ customers: initialCustomers }: CustomerListTableProps) {
+export function CustomerListTable({ customers: initialCustomers, pagination, searchQuery }: CustomerListTableProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [customers, setCustomers] = useState<CustomerData[]>(initialCustomers);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [localSearch, setLocalSearch] = useState(searchQuery);
 
   // Sync prop changes to state
   useEffect(() => {
     setCustomers(initialCustomers);
   }, [initialCustomers]);
-  
+
+  // Sync local search state with searchQuery prop when it changes
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") ?? "";
+    if (localSearch === urlSearch) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const current = new URLSearchParams(Array.from(searchParams.entries()));
+      if (localSearch) {
+        current.set("search", localSearch);
+      } else {
+        current.delete("search");
+      }
+      current.set("page", "1"); // Reset to page 1 on search
+      router.push(`${pathname}?${current.toString()}`);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [localSearch, pathname, router, searchParams]);
+
+  const handlePageChange = (pageIndex: number) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    current.set("page", String(pageIndex + 1));
+    router.push(`${pathname}?${current.toString()}`);
+  };
+
   // Ledger Modal State
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedCustomerName, setSelectedCustomerName] = useState<string>("");
@@ -63,18 +103,6 @@ export function CustomerListTable({ customers: initialCustomers }: CustomerListT
   const [blockMessage, setBlockMessage] = useState("");
   const [customerToDeactivate, setCustomerToDeactivate] = useState<CustomerData | null>(null);
   const [deactivateLoading, setDeactivateLoading] = useState(false);
-
-  const filteredCustomers = useMemo(() => {
-    if (!searchQuery.trim()) return customers;
-    const query = searchQuery.toLowerCase();
-    return customers.filter(
-      (c) =>
-        c.name.toLowerCase().includes(query) ||
-        c.code.toLowerCase().includes(query) ||
-        (c.phone && c.phone.toLowerCase().includes(query)) ||
-        (c.address && c.address.toLowerCase().includes(query))
-    );
-  }, [customers, searchQuery]);
 
   const handleOpenLedger = (id: string, name: string) => {
     setSelectedCustomerId(id);
@@ -142,8 +170,8 @@ export function CustomerListTable({ customers: initialCustomers }: CustomerListT
         <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-zinc-400" />
         <Input
           placeholder="Search by name, code, or phone..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          value={localSearch}
+          onChange={(e) => setLocalSearch(e.target.value)}
           className="pl-10 h-10 rounded-xl border-zinc-200 dark:border-zinc-800"
         />
       </div>
@@ -164,14 +192,14 @@ export function CustomerListTable({ customers: initialCustomers }: CustomerListT
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-            {filteredCustomers.length === 0 ? (
+            {customers.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-zinc-500 italic">
-                  No customers found matching "{searchQuery}"
+                  No customers found matching "{localSearch}"
                 </td>
               </tr>
             ) : (
-              filteredCustomers.map((customer) => {
+              customers.map((customer) => {
                 const bal = parseFloat(customer.balance || "0");
                 return (
                   <tr key={customer.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30">
@@ -255,6 +283,35 @@ export function CustomerListTable({ customers: initialCustomers }: CustomerListT
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {pagination && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2 mt-4">
+          <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+            Showing Page {pagination.page} of {Math.max(1, Math.ceil(pagination.total / pagination.pageSize))} (Total {pagination.total} records)
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(pagination.page - 2)}
+              disabled={pagination.page === 1}
+              className="h-9 w-9 p-0 border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(pagination.page)}
+              disabled={pagination.page >= Math.ceil(pagination.total / pagination.pageSize)}
+              className="h-9 w-9 p-0 border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Customer Ledger Modal */}
       {selectedCustomerId && showLedgerModal && (

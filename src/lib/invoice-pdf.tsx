@@ -1,6 +1,7 @@
 import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 import type { SalesInvoiceSchema } from "@/modules/sales/types";
 import { getBusinessSettingsAction } from "@/modules/settings/actions";
+import { parseAdditionalExpensesFromNotes } from "@/lib/utils";
 
 const styles = StyleSheet.create({
   page: {
@@ -29,6 +30,11 @@ const styles = StyleSheet.create({
   },
   muted: {
     color: "#71717a",
+  },
+  subText: {
+    color: "#71717a",
+    fontSize: 7,
+    marginTop: 2,
   },
   tableHeaderContainer: {
     backgroundColor: "#f4f4f5",
@@ -180,6 +186,8 @@ export function InvoicePDF({
     }
   }
 
+  const expenses = parseAdditionalExpensesFromNotes(invoice.notes);
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -248,7 +256,7 @@ export function InvoicePDF({
                     </Text>
                   )}
                 </View>
-                <Text style={styles.muted}>SKU: {item.productCode} {item.notes ? `| Notes: ${item.notes}` : ""}</Text>
+                <Text style={styles.subText}>SKU: {item.productCode} {item.notes ? `| Notes: ${item.notes}` : ""}</Text>
                 
                 {retInfo && retInfo.details.map((d, idx) => (
                   <View key={idx} style={{ flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2 }}>
@@ -298,6 +306,20 @@ export function InvoicePDF({
             </View>
           );
         })}
+        {expenses.map((exp, idx) => (
+          <View key={`exp-${idx}`} style={styles.tableRow}>
+            <View style={styles.item}>
+              <Text style={{ fontWeight: "bold" }}>{exp.type} Cost</Text>
+              {exp.notes && <Text style={styles.subText}>{exp.notes}</Text>}
+            </View>
+            <Text style={styles.altUnit}>—</Text>
+            <Text style={styles.qty}>—</Text>
+            <Text style={styles.rate}>—</Text>
+            <View style={styles.total}>
+              <Text>{money(exp.amount)}</Text>
+            </View>
+          </View>
+        ))}
 
         {(() => {
           const totalReturned = invoice.returns
@@ -329,6 +351,17 @@ export function InvoicePDF({
                   <Text>{money(originalVatAmount)}</Text>
                 </View>
               )}
+              {expenses.map((exp, idx) => (
+                <View key={idx} style={styles.totalLine}>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={styles.muted}>{exp.type} Cost</Text>
+                    {exp.notes && (
+                      <Text style={styles.subText}>({exp.notes})</Text>
+                    )}
+                  </View>
+                  <Text style={{ textAlign: "right", width: 80 }}>{money(exp.amount)}</Text>
+                </View>
+              ))}
               <View style={styles.totalLine}>
                 <Text style={{ fontWeight: 700 }}>Original Total</Text>
                 <Text style={{ fontWeight: 700 }}>{money(originalTotal)}</Text>

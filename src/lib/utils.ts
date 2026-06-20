@@ -252,4 +252,30 @@ export async function nextCode(
   return `${prefix}-${String(nextNum).padStart(padLen, "0")}`;
 }
 
+export type ParsedExpense = {
+  type: string;
+  amount: number;
+  notes: string | null;
+};
+
+export function parseAdditionalExpensesFromNotes(notes: string | null): ParsedExpense[] {
+  if (!notes) return [];
+  const match = notes.match(/\[Additional Expenses -> ([^\]]+)\]/);
+  if (!match) return [];
+  const breakdownStr = match[1];
+  const items = breakdownStr.split(" | ");
+  const expenses: ParsedExpense[] = [];
+  for (const item of items) {
+    const parts = item.match(/^([^:]+):\s*NPR\s*([\d.]+)(?:\s*\(([^)]+)\))?/);
+    if (parts) {
+      expenses.push({
+        type: parts[1].trim(),
+        amount: parseFloat(parts[2]),
+        notes: parts[3] ? parts[3].trim() : null,
+      });
+    }
+  }
+  return expenses;
+}
+
 
