@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useTransition } from "react";
+import { useTransition, useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/DataTable";
@@ -10,19 +10,73 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { ProjectProfitabilitySchema } from "@/modules/projects/types";
 import { updateProjectStatus, deleteProject } from "@/modules/projects/actions";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Hammer, Eye, Edit2, PlayCircle, PauseCircle, CheckCircle, Trash2 } from "lucide-react";
 import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
 
 interface ProjectsTableProps {
   projects: ProjectProfitabilitySchema[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
+  searchQuery: string;
   onIssueSupply: (project: { id: string; name: string; clientId: string; clientName: string }) => void;
   onEdit: (project: any) => void;
 }
 
-export function ProjectsTable({ projects, onIssueSupply, onEdit }: ProjectsTableProps) {
+export function ProjectsTable({
+  projects,
+  pagination,
+  searchQuery,
+  onIssueSupply,
+  onEdit,
+}: ProjectsTableProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+
+  // Sync local search state with searchQuery prop when it changes
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") ?? "";
+    if (localSearch === urlSearch) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const current = new URLSearchParams(Array.from(searchParams.entries()));
+      if (localSearch) {
+        current.set("search", localSearch);
+      } else {
+        current.delete("search");
+      }
+      current.set("page", "1"); // Reset to page 1 on search
+      router.push(`${pathname}?${current.toString()}`);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [localSearch, pathname, router, searchParams]);
+
+  const handlePageChange = (pageIndex: number) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    current.set("page", String(pageIndex + 1));
+    router.push(`${pathname}?${current.toString()}`);
+  };
+
+  const tablePagination = {
+    pageIndex: pagination.page - 1,
+    pageSize: pagination.pageSize,
+    pageCount: Math.ceil(pagination.total / pagination.pageSize),
+    totalItems: pagination.total,
+  };
 
   const handleStatusChange = (projectId: string, status: any) => {
     startTransition(async () => {
@@ -281,7 +335,10 @@ export function ProjectsTable({ projects, onIssueSupply, onEdit }: ProjectsTable
       columns={columns}
       data={projects}
       searchPlaceholder="Search projects..."
-      searchColumnId="projectName"
+      searchValue={localSearch}
+      onSearchChange={setLocalSearch}
+      pagination={tablePagination}
+      onPageChange={handlePageChange}
     />
   );
 }

@@ -2,16 +2,64 @@ import { getDb } from "@/lib/db";
 import { serializeForClient } from "@/lib/utils";
 import Decimal from "decimal.js";
 
-export async function getExpenses() {
+type GetExpensesOptions = {
+  page?: number;
+  pageSize?: number;
+  search?: string | null;
+  month?: string | null;
+};
+
+export async function getExpenses(opts: GetExpensesOptions = {}) {
+  const { page = 1, pageSize = 25, search = null, month = null } = opts;
   const db = await getDb();
 
-  const expenses = await db.expense.findMany({
-    include: { creator: { select: { name: true } } },
+  const where: any = {};
+  if (search) {
+    where.OR = [
+      { expenseCode: { contains: search, mode: "insensitive" } },
+      { category: { contains: search, mode: "insensitive" } },
+      { notes: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  if (month && month !== "all") {
+    const [year, m] = month.split("-");
+    const startDate = new Date(Number(year), Number(m) - 1, 1);
+    const endDate = new Date(Number(year), Number(m), 0, 23, 59, 59, 999);
+    where.expenseDate = {
+      gte: startDate,
+      lte: endDate,
+    };
+  }
+
+  // Get distinct months for the dropdown (high performance query)
+  const allExpenseDates = await db.expense.findMany({
+    select: { expenseDate: true },
     orderBy: { expenseDate: "desc" },
   });
 
+  const getMonthKey = (date: Date) => {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  };
+  const availableMonths = Array.from(
+    new Set(allExpenseDates.map((e) => getMonthKey(e.expenseDate)))
+  );
+
+  const [expenses, total] = await Promise.all([
+    db.expense.findMany({
+      where,
+      include: { creator: { select: { name: true } } },
+      orderBy: { expenseDate: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    db.expense.count({ where }),
+  ]);
+
   return serializeForClient({
     data: expenses,
+    availableMonths,
+    pagination: { page, pageSize, total },
   });
 }
 

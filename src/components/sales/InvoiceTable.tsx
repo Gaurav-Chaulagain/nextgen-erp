@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/DataTable";
@@ -15,9 +16,59 @@ import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
 
 interface InvoiceTableProps {
   invoices: SalesInvoiceSchema[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
+  searchQuery: string;
 }
 
-export function InvoiceTable({ invoices }: InvoiceTableProps) {
+export function InvoiceTable({ invoices, pagination, searchQuery }: InvoiceTableProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+
+  // Sync local search state with searchQuery prop when it changes
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") ?? "";
+    if (localSearch === urlSearch) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const current = new URLSearchParams(Array.from(searchParams.entries()));
+      if (localSearch) {
+        current.set("search", localSearch);
+      } else {
+        current.delete("search");
+      }
+      current.set("page", "1"); // Reset to page 1 on search
+      router.push(`${pathname}?${current.toString()}`);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [localSearch, pathname, router, searchParams]);
+
+  const handlePageChange = (pageIndex: number) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    current.set("page", String(pageIndex + 1));
+    router.push(`${pathname}?${current.toString()}`);
+  };
+
+  const tablePagination = {
+    pageIndex: pagination.page - 1,
+    pageSize: pagination.pageSize,
+    pageCount: Math.ceil(pagination.total / pagination.pageSize),
+    totalItems: pagination.total,
+  };
+
   const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoiceSchema | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [showPay, setShowPay] = useState(false);
@@ -169,7 +220,15 @@ export function InvoiceTable({ invoices }: InvoiceTableProps) {
 
   return (
     <>
-      <DataTable columns={columns} data={invoices} searchPlaceholder="Search invoices..." searchColumnId="customerName" />
+      <DataTable
+        columns={columns}
+        data={invoices}
+        searchPlaceholder="Search invoices by customer or invoice #..."
+        searchValue={localSearch}
+        onSearchChange={setLocalSearch}
+        pagination={tablePagination}
+        onPageChange={handlePageChange}
+      />
 
       {/* Invoice Preview Modal */}
       {selectedInvoice && showPreview && (

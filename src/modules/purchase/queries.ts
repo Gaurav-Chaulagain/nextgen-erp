@@ -17,6 +17,7 @@ type GetPurchaseOrdersOptions = {
   dateTo?: Date | null;
   page?: number;
   pageSize?: number;
+  search?: string | null;
 };
 
 function toDecimal(value: Decimal.Value | null | undefined) {
@@ -97,7 +98,7 @@ function mapSupplier(supplier: any) {
 }
 
 export async function getPurchaseOrders(opts: GetPurchaseOrdersOptions = {}) {
-  const { status = null, supplierId = null, dateFrom = null, dateTo = null, page = 1, pageSize = 25 } = opts;
+  const { status = null, supplierId = null, dateFrom = null, dateTo = null, page = 1, pageSize = 25, search = null } = opts;
   const db = await getDb();
 
   const where: any = {};
@@ -107,6 +108,12 @@ export async function getPurchaseOrders(opts: GetPurchaseOrdersOptions = {}) {
     where.orderDate = {};
     if (dateFrom) where.orderDate.gte = dateFrom;
     if (dateTo) where.orderDate.lte = dateTo;
+  }
+  if (search) {
+    where.OR = [
+      { poNumber: { contains: search, mode: "insensitive" } },
+      { supplier: { name: { contains: search, mode: "insensitive" } } },
+    ];
   }
 
   const [orders, total] = await Promise.all([
@@ -172,8 +179,31 @@ export async function getPurchaseStats() {
   ]);
 
   const thisMonthTotal = thisMonthOrders.reduce((sum, po) => sum.plus(po.totalAmount), new Decimal(0));
+  
+  const poIds = payableOrders.map(po => po.id);
+  const ledgerCredits = poIds.length
+    ? await db.ledgerEntry.findMany({
+        where: {
+          partyType: "SUPPLIER",
+          entryType: "CREDIT",
+          referenceType: "PURCHASE",
+          referenceId: { in: poIds },
+        },
+        select: { referenceId: true, amount: true },
+      })
+    : [];
+
+  const creditsByPoId = new Map<string, Decimal>();
+  for (const entry of ledgerCredits) {
+    if (entry.referenceId) {
+      const current = creditsByPoId.get(entry.referenceId) || new Decimal(0);
+      creditsByPoId.set(entry.referenceId, current.plus(entry.amount));
+    }
+  }
+
   const pendingPayments = payableOrders.reduce((sum, po) => {
-    const balance = toDecimal(po.totalAmount).minus(po.paidAmount);
+    const receivedAmount = creditsByPoId.get(po.id) || new Decimal(0);
+    const balance = receivedAmount.minus(po.paidAmount);
     return balance.greaterThan(0) ? sum.plus(balance) : sum;
   }, new Decimal(0));
 
@@ -257,9 +287,30 @@ export async function getPendingPayments() {
     orderBy: { orderDate: "asc" },
   });
 
+  const poIds = orders.map(po => po.id);
+  const ledgerCredits = poIds.length
+    ? await db.ledgerEntry.findMany({
+        where: {
+          partyType: "SUPPLIER",
+          entryType: "CREDIT",
+          referenceType: "PURCHASE",
+          referenceId: { in: poIds },
+        },
+        select: { referenceId: true, amount: true },
+      })
+    : [];
+
+  const creditsByPoId = new Map<string, Decimal>();
+  for (const entry of ledgerCredits) {
+    if (entry.referenceId) {
+      const current = creditsByPoId.get(entry.referenceId) || new Decimal(0);
+      creditsByPoId.set(entry.referenceId, current.plus(entry.amount));
+    }
+  }
+
   const pending = orders
     .map((po) => {
-      const total = toDecimal(po.totalAmount);
+      const total = creditsByPoId.get(po.id) || new Decimal(0);
       const paidAmount = toDecimal(po.paidAmount);
       const balance = total.minus(paidAmount);
       const daysOverdue = Math.max(0, Math.floor((Date.now() - po.orderDate.getTime()) / (1000 * 60 * 60 * 24)));
@@ -358,22 +409,44 @@ export async function getActiveProducts() {
   return serializeForClient(mapped);
 }
 
-export async function getPurchaseReturns(supplierId?: string) {
+type GetPurchaseReturnsOptions = {
+  supplierId?: string | null;
+  page?: number;
+  pageSize?: number;
+  search?: string | null;
+};
+
+export async function getPurchaseReturns(opts: GetPurchaseReturnsOptions = {}) {
+  const { supplierId = null, page = 1, pageSize = 25, search = null } = opts;
   const db = await getDb();
   const where: any = {};
   if (supplierId) where.supplierId = supplierId;
+  if (search) {
+    where.OR = [
+      { returnNumber: { contains: search, mode: "insensitive" } },
+      { supplier: { name: { contains: search, mode: "insensitive" } } },
+    ];
+  }
 
-  const returns = await db.purchaseReturn.findMany({
-    where,
-    include: {
-      supplier: true,
-      items: {
-        include: { product: true },
+  const [returns, total] = await Promise.all([
+    db.purchaseReturn.findMany({
+      where,
+      include: {
+        supplier: true,
+        items: {
+          include: { product: true },
+        },
       },
-    },
-    orderBy: { returnDate: "desc" },
-  });
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      orderBy: { returnDate: "desc" },
+    }),
+    db.purchaseReturn.count({ where }),
+  ]);
 
-  return serializeForClient(returns);
+  return serializeForClient({
+    data: returns,
+    pagination: { page, pageSize, total },
+  });
 }
 

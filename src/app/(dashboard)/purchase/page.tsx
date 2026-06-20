@@ -11,7 +11,7 @@ import { getPurchaseOrders, getPurchaseStats, getSuppliers, getPurchaseReturns }
 import { getCurrentUser } from "@/auth/session";
 
 type PurchasePageProps = {
-  searchParams?: Promise<{ tab?: string }>;
+  searchParams?: Promise<{ tab?: string; page?: string; search?: string }>;
 };
 
 export default async function PurchasePage({ searchParams }: PurchasePageProps) {
@@ -19,15 +19,32 @@ export default async function PurchasePage({ searchParams }: PurchasePageProps) 
   const userId = user?.id || "";
   const params = await searchParams;
   const tab = params?.tab ?? "orders";
+  const search = params?.search ?? "";
+  const page = parseInt(params?.page ?? "1") || 1;
 
-  const [ordersResp, stats, suppliersResp, returns] = await Promise.all([
-    getPurchaseOrders(),
+  // Isolate query parameter bindings based on the active tab
+  const ordersPage = tab === "orders" ? page : 1;
+  const ordersSearch = tab === "orders" ? search : "";
+
+  const suppliersPage = tab === "suppliers" ? page : 1;
+  const suppliersSearch = tab === "suppliers" ? search : "";
+
+  const returnsPage = tab === "returns" ? page : 1;
+  const returnsSearch = tab === "returns" ? search : "";
+
+  const [ordersResp, stats, suppliersResp, returnsResp] = await Promise.all([
+    getPurchaseOrders({ page: ordersPage, search: ordersSearch, pageSize: 25 }),
     getPurchaseStats(),
-    getSuppliers(),
-    getPurchaseReturns(),
+    getSuppliers(suppliersSearch, suppliersPage, 25),
+    getPurchaseReturns({ page: returnsPage, search: returnsSearch, pageSize: 25 }),
   ]);
   
   const orders = ordersResp.data;
+  const pagination = ordersResp.pagination;
+  const suppliers = suppliersResp.data;
+  const suppliersPagination = suppliersResp.pagination;
+  const returns = returnsResp.data;
+  const returnsPagination = returnsResp.pagination;
 
   const tabs = [
     { id: "orders", label: "Purchase Orders" },
@@ -70,14 +87,14 @@ export default async function PurchasePage({ searchParams }: PurchasePageProps) 
             <NewPurchaseOrderForm userId={userId} />
           </div>
 
-          {orders.length === 0 ? (
+          {orders.length === 0 && !search ? (
             <Card className="border border-dashed">
               <CardContent className="pt-6">
                 <p className="text-center text-sm text-zinc-500">No purchase orders yet. Create one to get started.</p>
               </CardContent>
             </Card>
           ) : (
-            <PurchaseOrderTable orders={orders} userId={userId} />
+            <PurchaseOrderTable orders={orders} pagination={pagination} searchQuery={search} userId={userId} />
           )}
         </section>
       )}
@@ -91,12 +108,20 @@ export default async function PurchasePage({ searchParams }: PurchasePageProps) 
             </div>
             <AddSupplierModal userId={userId} />
           </div>
-          <SupplierListTable suppliers={suppliersResp.data as any} userId={userId} />
+          {suppliers.length === 0 && !search ? (
+            <Card className="border border-dashed">
+              <CardContent className="pt-6">
+                <p className="text-center text-sm text-zinc-500">No suppliers registered yet. Create one to get started.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <SupplierListTable suppliers={suppliers as any} pagination={suppliersPagination} searchQuery={suppliersSearch} userId={userId} />
+          )}
         </section>
       )}
 
       {tab === "returns" && (
-        <PurchaseReturnsTab returns={returns} userId={userId} />
+        <PurchaseReturnsTab returns={returns} pagination={returnsPagination} searchQuery={returnsSearch} userId={userId} />
       )}
     </div>
   );

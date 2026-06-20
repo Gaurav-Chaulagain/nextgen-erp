@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,11 +22,60 @@ import { generatePOPDF } from "@/lib/po-pdf";
 
 interface PurchaseOrderTableProps {
   orders: PurchaseOrderSchema[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
+  searchQuery: string;
   userId: string;
 }
 
-export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) {
+export function PurchaseOrderTable({ orders, pagination, searchQuery, userId }: PurchaseOrderTableProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+
+  // Sync local search state with searchQuery prop when it changes
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") ?? "";
+    if (localSearch === urlSearch) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const current = new URLSearchParams(Array.from(searchParams.entries()));
+      if (localSearch) {
+        current.set("search", localSearch);
+      } else {
+        current.delete("search");
+      }
+      current.set("page", "1"); // Reset to page 1 on search
+      router.push(`${pathname}?${current.toString()}`);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [localSearch, pathname, router, searchParams]);
+
+  const handlePageChange = (pageIndex: number) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    current.set("page", String(pageIndex + 1));
+    router.push(`${pathname}?${current.toString()}`);
+  };
+
+  const tablePagination = {
+    pageIndex: pagination.page - 1,
+    pageSize: pagination.pageSize,
+    pageCount: Math.ceil(pagination.total / pagination.pageSize),
+    totalItems: pagination.total,
+  };
+
   const [selectedPO, setSelectedPO] = useState<PurchaseOrderSchema | null>(null);
   const [showReceive, setShowReceive] = useState(false);
   const [showPay, setShowPay] = useState(false);
@@ -319,8 +368,11 @@ export function PurchaseOrderTable({ orders, userId }: PurchaseOrderTableProps) 
       <DataTable
         columns={columns}
         data={orders}
-        searchPlaceholder="Search purchase orders..."
-        searchColumnId="poNumber"
+        searchPlaceholder="Search purchase orders by PO # or vendor..."
+        searchValue={localSearch}
+        onSearchChange={setLocalSearch}
+        pagination={tablePagination}
+        onPageChange={handlePageChange}
       />
 
       {/* Receive Goods Modal */}

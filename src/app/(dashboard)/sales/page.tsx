@@ -9,7 +9,7 @@ import { SalesStats } from "@/components/sales/SalesStats";
 import { CustomerListTable } from "@/components/sales/CustomerListTable";
 import { AddCustomerModal } from "@/components/sales/AddCustomerModal";
 import { formatAmountOnly } from "@/lib/utils";
-import { ReturnActions } from "@/components/sales/ReturnActions";
+import { SalesReturnsTab } from "@/components/sales/SalesReturnsTab";
 import {
   getCustomers,
   getInvoiceFormLookups,
@@ -21,23 +21,50 @@ import {
 } from "@/modules/sales/queries";
 
 type SalesPageProps = {
-  searchParams?: Promise<{ tab?: string }>;
+  searchParams?: Promise<{ tab?: string; page?: string; search?: string }>;
 };
 
 export default async function SalesPage({ searchParams }: SalesPageProps) {
   const params = await searchParams;
   const tab = params?.tab ?? "invoices";
+  const search = params?.search ?? "";
+  const page = parseInt(params?.page ?? "1") || 1;
   const now = new Date();
 
-  const [invoicesResp, stats, customersResp, outstanding, returnsResp, lookups, revenueByChannel] = await Promise.all([
-    getSalesInvoices(),
+  // Isolate query parameter bindings based on the active tab
+  const invoicesPage = tab === "invoices" ? page : 1;
+  const invoicesSearch = tab === "invoices" ? search : "";
+
+  const customersPage = tab === "customers" ? page : 1;
+  const customersSearch = tab === "customers" ? search : "";
+
+  const outstandingPage = tab === "outstanding" ? page : 1;
+  const outstandingSearch = tab === "outstanding" ? search : "";
+
+  const returnsPage = tab === "returns" ? page : 1;
+  const returnsSearch = tab === "returns" ? search : "";
+
+  const [invoicesResp, stats, customersResp, outstandingResp, returnsResp, lookups, revenueByChannel] = await Promise.all([
+    getSalesInvoices({ page: invoicesPage, search: invoicesSearch, pageSize: 25 }),
     getSalesStats(),
-    getCustomers(),
-    getOutstandingDues(),
-    getSalesReturns(),
+    getCustomers(customersSearch, undefined, customersPage, 25),
+    getOutstandingDues({ search: outstandingSearch, page: outstandingPage, pageSize: 25 }),
+    getSalesReturns({ search: returnsSearch, page: returnsPage, pageSize: 25 }),
     getInvoiceFormLookups(),
     getRevenueByChannel(now.getMonth() + 1, now.getFullYear()),
   ]);
+
+  const invoices = invoicesResp.data;
+  const invoicesPagination = invoicesResp.pagination;
+
+  const customers = customersResp.data;
+  const customersPagination = customersResp.pagination;
+
+  const outstanding = outstandingResp.data;
+  const outstandingPagination = outstandingResp.pagination;
+
+  const returns = returnsResp.data;
+  const returnsPagination = returnsResp.pagination;
 
   const tabs = [
     { id: "invoices", label: "Invoices" },
@@ -97,10 +124,10 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
             <h2 className="text-lg font-semibold">Invoices</h2>
             <p className="text-sm text-zinc-500">Retail, wholesale, and project invoices with payment status.</p>
           </div>
-          {invoicesResp.data.length ? (
-            <InvoiceTable invoices={invoicesResp.data} />
-          ) : (
+          {invoices.length === 0 && !search ? (
             <p className="rounded-lg border border-dashed p-8 text-center text-sm text-zinc-500">No invoices yet.</p>
+          ) : (
+            <InvoiceTable invoices={invoices} pagination={invoicesPagination} searchQuery={invoicesSearch} />
           )}
         </section>
       )}
@@ -114,7 +141,11 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
             </div>
             <AddCustomerModal />
           </div>
-          <CustomerListTable customers={customersResp.data as any} />
+          {customers.length === 0 && !search ? (
+            <p className="rounded-lg border border-dashed p-8 text-center text-sm text-zinc-500">No customers registered yet.</p>
+          ) : (
+            <CustomerListTable customers={customers as any} pagination={customersPagination} searchQuery={customersSearch} />
+          )}
         </section>
       )}
 
@@ -124,101 +155,16 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
             <h2 className="text-lg font-semibold">Outstanding Dues</h2>
             <p className="text-sm text-zinc-500">Customers with unpaid invoice balances.</p>
           </div>
-          {outstanding.length ? <OutstandingDuesTable dues={outstanding} /> : <p className="rounded-lg border border-dashed p-8 text-center text-sm text-zinc-500">No outstanding dues.</p>}
+          {outstanding.length === 0 && !search ? (
+            <p className="rounded-lg border border-dashed p-8 text-center text-sm text-zinc-500">No outstanding dues.</p>
+          ) : (
+            <OutstandingDuesTable dues={outstanding} pagination={outstandingPagination} searchQuery={outstandingSearch} />
+          )}
         </section>
       )}
 
       {tab === "returns" && (
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-          <div className="mb-6 border-b pb-4">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Sales Returns Log</h2>
-            <p className="text-sm text-zinc-500">Distinct Red-themed Return Notes (SRN-XXXX) tracking re-credited inventory stock and digital cash book payouts.</p>
-          </div>
-          
-          <div className="space-y-6">
-            {returnsResp.data.length ? returnsResp.data.map((r: any) => (
-              <div key={r.id} className="rounded-xl border border-red-100 bg-red-50/20 p-5 dark:border-red-950/40 dark:bg-red-950/10">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between border-b border-red-100/60 pb-3 dark:border-red-950/20 mb-3">
-                  <div>
-                    <span className="inline-flex items-center rounded-lg bg-red-100 px-3 py-1 font-mono text-xs font-bold text-red-700 dark:bg-red-950 dark:text-red-300">
-                      {r.returnNumber}
-                    </span>
-                    <span className="ml-3 text-xs text-zinc-500 font-medium">
-                      Date: {new Date(r.returnDate).toLocaleDateString("en-IN")}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="text-xs text-zinc-500 font-semibold">
-                      Original Invoice: <span className="font-mono text-zinc-800 dark:text-zinc-200">{r.invoice?.invoiceNumber ?? "—"}</span>
-                    </span>
-                    <span className="text-xs text-zinc-500 font-semibold flex items-center gap-1.5">
-                      Refund Method: <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300 font-mono text-[10px]">{r.refundMethod}</Badge>
-                    </span>
-                    <Badge className="bg-red-600 hover:bg-red-700 text-white dark:bg-red-500 text-[10px] font-bold px-2 py-0.5">{r.status}</Badge>
-                    <ReturnActions returnId={r.id} />
-                  </div>
-                </div>
-
-                {/* Items Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-zinc-600 dark:text-zinc-300">
-                    <thead>
-                      <tr className="border-b border-red-100/40 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                        <th className="px-3 py-1.5 text-left">Product Name</th>
-                        <th className="px-3 py-1.5 text-left">Warehouse</th>
-                        <th className="px-3 py-1.5 text-right">Qty</th>
-                        <th className="px-3 py-1.5 text-right">Rate (NPR)</th>
-                        <th className="px-3 py-1.5 text-right">Total Price (NPR)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-red-100/20 font-medium">
-                      {r.items?.map((item: any) => (
-                        <tr key={item.id}>
-                          <td className="px-3 py-2 text-zinc-800 dark:text-zinc-200">{item.product?.name}</td>
-                          <td className="px-3 py-2 text-zinc-500">{item.warehouse?.name}</td>
-                          <td className="px-3 py-2 text-right">{item.qty}</td>
-                          <td className="px-3 py-2 text-right">{formatAmountOnly(Number(item.unitPrice))}</td>
-                          <td className="px-3 py-2 text-right text-zinc-800 dark:text-zinc-200">{formatAmountOnly(Number(item.totalPrice))}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="mt-3 pt-3 border-t border-red-100/40 dark:border-red-950/20 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 text-xs">
-                  <div className="text-zinc-500 max-w-md">
-                    <span className="font-semibold text-zinc-700 dark:text-zinc-300">Reason:</span> {r.notes || "No reason specified."}
-                  </div>
-                  {(() => {
-                    const originalVatPercent = r.invoice?.vatPercent ? Number(r.invoice.vatPercent) : 0;
-                    const hasVat = originalVatPercent > 0;
-                    const totalAmount = Number(r.totalAmount);
-                    const subtotal = hasVat ? totalAmount / (1 + originalVatPercent / 100) : totalAmount;
-                    const vatAmount = totalAmount - subtotal;
-                    
-                    return (
-                      <div className="text-right space-y-1 ml-auto font-medium text-zinc-600 dark:text-zinc-400">
-                        {hasVat && (
-                          <>
-                            <div>Subtotal: <span className="text-zinc-900 dark:text-zinc-100">{formatAmountOnly(subtotal)}</span></div>
-                            <div>VAT ({originalVatPercent}%): <span className="text-zinc-900 dark:text-zinc-100">{formatAmountOnly(vatAmount)}</span></div>
-                          </>
-                        )}
-                        <div className="font-bold text-red-700 dark:text-red-300 text-sm pt-1">
-                          Total Credit: {formatAmountOnly(totalAmount)}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            )) : (
-              <div className="rounded-xl border border-dashed p-10 text-center text-sm text-zinc-500">
-                No Sales Returns found.
-              </div>
-            )}
-          </div>
-        </section>
+        <SalesReturnsTab returns={returns} pagination={returnsPagination} searchQuery={returnsSearch} />
       )}
     </div>
   );

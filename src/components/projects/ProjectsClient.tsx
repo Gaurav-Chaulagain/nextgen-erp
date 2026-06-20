@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ProjectStats } from "./ProjectStats";
 import { ProjectsTable } from "./ProjectsTable";
@@ -11,7 +12,14 @@ import type { ProjectStatsSchema, ProjectProfitabilitySchema } from "@/modules/p
 
 interface ProjectsClientProps {
   stats: ProjectStatsSchema;
-  profitability: ProjectProfitabilitySchema[];
+  activeProjects: ProjectProfitabilitySchema[];
+  activePagination: { page: number; pageSize: number; total: number };
+  allProjects: ProjectProfitabilitySchema[];
+  allPagination: { page: number; pageSize: number; total: number };
+  pnlProjects: ProjectProfitabilitySchema[];
+  pnlPagination: { page: number; pageSize: number; total: number };
+  currentTab: string;
+  searchQuery: string;
   lookups: {
     clients: Array<{ id: string; name: string; code: string; customerType: string }>;
     products: any[];
@@ -19,14 +27,24 @@ interface ProjectsClientProps {
   };
 }
 
-export function ProjectsClient({ stats, profitability, lookups }: ProjectsClientProps) {
-  const [tab, setTab] = useState<"active" | "all" | "pnl">("active");
+export function ProjectsClient({
+  stats,
+  activeProjects,
+  activePagination,
+  allProjects,
+  allPagination,
+  pnlProjects,
+  pnlPagination,
+  currentTab,
+  searchQuery,
+  lookups,
+}: ProjectsClientProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [showIssue, setShowIssue] = useState(false);
   const [selectedProject, setSelectedProject] = useState<{ id: string; name: string; clientId: string; clientName: string } | null>(null);
   const [editingProject, setEditingProject] = useState<any | null>(null);
 
-  const activeProjects = profitability.filter((p) => p.status === "ACTIVE");
+  const tab = (currentTab ?? "active") as "active" | "all" | "pnl";
 
   const handleEdit = (project: any) => {
     setEditingProject(project);
@@ -55,28 +73,28 @@ export function ProjectsClient({ stats, profitability, lookups }: ProjectsClient
 
       {/* Tabs */}
       <div className="flex gap-2 border-b pb-2 dark:border-zinc-800">
-        <button
-          onClick={() => setTab("active")}
+        <Link
+          href="/projects?tab=active"
           className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
             tab === "active"
               ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950"
               : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
           }`}
         >
-          Active Projects ({activeProjects.length})
-        </button>
-        <button
-          onClick={() => setTab("all")}
+          Active Projects ({stats.activeCount})
+        </Link>
+        <Link
+          href="/projects?tab=all"
           className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
             tab === "all"
               ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950"
               : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
           }`}
         >
-          All Projects ({profitability.length})
-        </button>
-        <button
-          onClick={() => setTab("pnl")}
+          All Projects ({allPagination.total})
+        </Link>
+        <Link
+          href="/projects?tab=pnl"
           className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
             tab === "pnl"
               ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950"
@@ -84,12 +102,14 @@ export function ProjectsClient({ stats, profitability, lookups }: ProjectsClient
           }`}
         >
           Project Profitability (P&L)
-        </button>
+        </Link>
       </div>
 
       {tab === "active" && (
         <ProjectsTable
           projects={activeProjects}
+          pagination={activePagination}
+          searchQuery={searchQuery}
           onIssueSupply={(proj) => {
             setSelectedProject(proj);
             setShowIssue(true);
@@ -100,7 +120,9 @@ export function ProjectsClient({ stats, profitability, lookups }: ProjectsClient
 
       {tab === "all" && (
         <ProjectsTable
-          projects={profitability}
+          projects={allProjects}
+          pagination={allPagination}
+          searchQuery={searchQuery}
           onIssueSupply={(proj) => {
             setSelectedProject(proj);
             setShowIssue(true);
@@ -109,7 +131,13 @@ export function ProjectsClient({ stats, profitability, lookups }: ProjectsClient
         />
       )}
 
-      {tab === "pnl" && <ProjectProfitabilityReport projects={profitability} />}
+      {tab === "pnl" && (
+        <ProjectProfitabilityReport
+          projects={pnlProjects}
+          pagination={pnlPagination}
+          searchQuery={searchQuery}
+        />
+      )}
 
       {/* Create / Edit Project Modal */}
       <CreateProjectModal

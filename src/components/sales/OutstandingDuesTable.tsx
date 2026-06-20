@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/DataTable";
@@ -15,9 +16,58 @@ import { Loader2 } from "lucide-react";
 
 interface OutstandingDuesTableProps {
   dues: OutstandingDueSchema[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
+  searchQuery: string;
 }
 
-export function OutstandingDuesTable({ dues }: OutstandingDuesTableProps) {
+export function OutstandingDuesTable({ dues, pagination, searchQuery }: OutstandingDuesTableProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+
+  // Sync local search state with searchQuery prop when it changes
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") ?? "";
+    if (localSearch === urlSearch) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const current = new URLSearchParams(Array.from(searchParams.entries()));
+      if (localSearch) {
+        current.set("search", localSearch);
+      } else {
+        current.delete("search");
+      }
+      current.set("page", "1"); // Reset to page 1 on search
+      router.push(`${pathname}?${current.toString()}`);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [localSearch, pathname, router, searchParams]);
+
+  const handlePageChange = (pageIndex: number) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    current.set("page", String(pageIndex + 1));
+    router.push(`${pathname}?${current.toString()}`);
+  };
+
+  const tablePagination = {
+    pageIndex: pagination.page - 1,
+    pageSize: pagination.pageSize,
+    pageCount: Math.ceil(pagination.total / pagination.pageSize),
+    totalItems: pagination.total,
+  };
   const [selectedCustomer, setSelectedCustomer] = useState<{ id: string; name: string } | null>(null);
   const [showLedger, setShowLedger] = useState(false);
   
@@ -133,7 +183,15 @@ export function OutstandingDuesTable({ dues }: OutstandingDuesTableProps) {
 
   return (
     <>
-      <DataTable columns={columns} data={dues} searchPlaceholder="Search customers..." searchColumnId="customerName" />
+      <DataTable
+        columns={columns}
+        data={dues}
+        searchPlaceholder="Search customers with outstanding dues..."
+        searchValue={localSearch}
+        onSearchChange={setLocalSearch}
+        pagination={tablePagination}
+        onPageChange={handlePageChange}
+      />
 
       {/* Customer Ledger Modal */}
       {selectedCustomer && showLedger && (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -8,14 +9,62 @@ import { Badge } from "@/components/ui/badge";
 import { createPurchaseReturn } from "@/modules/purchase/actions";
 import { formatDate, formatAmountOnly } from "@/lib/utils";
 import { toast } from "sonner";
-import { RefreshCcw, Plus, Trash2, Eye, Clipboard, ArrowLeftRight } from "lucide-react";
+import { RefreshCcw, Plus, Trash2, Eye, Clipboard, ArrowLeftRight, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface PurchaseReturnsTabProps {
   returns: any[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
+  searchQuery: string;
   userId: string;
 }
 
-export function PurchaseReturnsTab({ returns: initialReturns, userId }: PurchaseReturnsTabProps) {
+export function PurchaseReturnsTab({ returns: initialReturns, pagination, searchQuery, userId }: PurchaseReturnsTabProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const [returns, setReturns] = useState<any[]>(initialReturns);
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+
+  // Sync prop changes to state
+  useEffect(() => {
+    setReturns(initialReturns);
+  }, [initialReturns]);
+
+  // Sync local search state with searchQuery prop when it changes
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") ?? "";
+    if (localSearch === urlSearch) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const current = new URLSearchParams(Array.from(searchParams.entries()));
+      if (localSearch) {
+        current.set("search", localSearch);
+      } else {
+        current.delete("search");
+      }
+      current.set("page", "1"); // Reset to page 1 on search
+      router.push(`${pathname}?${current.toString()}`);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [localSearch, pathname, router, searchParams]);
+
+  const handlePageChange = (pageIndex: number) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    current.set("page", String(pageIndex + 1));
+    router.push(`${pathname}?${current.toString()}`);
+  };
   const [open, setOpen] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState<any>(null);
   const [showDetail, setShowDetail] = useState(false);
@@ -173,6 +222,17 @@ export function PurchaseReturnsTab({ returns: initialReturns, userId }: Purchase
         </Button>
       </div>
 
+      {/* Search Input */}
+      <div className="relative max-w-sm mb-4">
+        <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-zinc-400" />
+        <Input
+          placeholder="Search by PRN # or supplier..."
+          value={localSearch}
+          onChange={(e) => setLocalSearch(e.target.value)}
+          className="pl-10 h-10 rounded-xl border-zinc-200 dark:border-zinc-800"
+        />
+      </div>
+
       <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-900">
         <table className="w-full text-sm">
           <thead className="bg-zinc-50 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400">
@@ -186,8 +246,8 @@ export function PurchaseReturnsTab({ returns: initialReturns, userId }: Purchase
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-200 dark:divide-zinc-900">
-            {initialReturns.length ? (
-              initialReturns.map((r) => (
+            {returns.length ? (
+              returns.map((r) => (
                 <tr key={r.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30">
                   <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">{formatDate(r.returnDate)}</td>
                   <td className="px-4 py-3 font-mono font-bold text-orange-600 dark:text-orange-400">{r.returnNumber}</td>
@@ -216,13 +276,42 @@ export function PurchaseReturnsTab({ returns: initialReturns, userId }: Purchase
             ) : (
               <tr>
                 <td colSpan={6} className="px-4 py-12 text-center text-zinc-500 italic">
-                  No purchase returns logged yet.
+                  {localSearch ? `No purchase returns found matching "${localSearch}"` : "No purchase returns logged yet."}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {pagination && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2 mt-4">
+          <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+            Showing Page {pagination.page} of {Math.max(1, Math.ceil(pagination.total / pagination.pageSize))} (Total {pagination.total} records)
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(pagination.page - 2)}
+              disabled={pagination.page === 1}
+              className="h-9 w-9 p-0 border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(pagination.page)}
+              disabled={pagination.page >= Math.ceil(pagination.total / pagination.pageSize)}
+              className="h-9 w-9 p-0 border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Log Purchase Return Wizard Modal */}
       <Dialog open={open} onOpenChange={setOpen}>

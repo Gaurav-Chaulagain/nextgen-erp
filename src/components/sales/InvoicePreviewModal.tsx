@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { INVOICE_COLORS } from "@/lib/constants";
-import { formatAmountOnly } from "@/lib/utils";
+import { formatAmountOnly, parseAdditionalExpensesFromNotes } from "@/lib/utils";
 import type { SalesInvoiceSchema } from "@/modules/sales/types";
 import { generateInvoicePDF } from "@/lib/invoice-pdf";
 
@@ -63,9 +63,11 @@ export function InvoicePreviewModal({ open = false, onOpenChange, invoice }: Inv
     }
   };
 
+  const expenses = invoice ? parseAdditionalExpensesFromNotes(invoice.notes) : [];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col overflow-y-auto">
+      <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] flex flex-col p-4 sm:p-6 overflow-hidden">
         <DialogHeader>
           <DialogTitle>Invoice Preview</DialogTitle>
           <DialogDescription className="sr-only">
@@ -74,7 +76,7 @@ export function InvoicePreviewModal({ open = false, onOpenChange, invoice }: Inv
         </DialogHeader>
 
         {invoice ? (
-          <div className="overflow-hidden rounded-lg border bg-white text-zinc-950">
+          <div className="flex-1 overflow-y-auto my-4 border rounded-lg min-h-0 bg-white text-zinc-950">
             <div className="p-6 text-white" style={{ backgroundColor: headerColor }}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -141,7 +143,7 @@ export function InvoicePreviewModal({ open = false, onOpenChange, invoice }: Inv
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] font-mono text-zinc-500 mt-0.5">
+                          <div className="text-[9px] font-mono text-zinc-500/80 mt-0.5">
                             SKU: {item.productCode} {item.notes ? `| Notes: ${item.notes}` : ""}
                           </div>
 
@@ -222,6 +224,20 @@ export function InvoicePreviewModal({ open = false, onOpenChange, invoice }: Inv
                       </tr>
                     );
                   })}
+                  {expenses.map((exp, idx) => (
+                    <tr key={`exp-${idx}`} className="align-top hover:bg-zinc-50/50 transition-colors">
+                      <td className="px-3 py-3">
+                        <div className="font-semibold text-zinc-900">{exp.type} Cost</div>
+                        {exp.notes && <div className="text-[9px] text-zinc-500/80 mt-0.5">{exp.notes}</div>}
+                      </td>
+                      <td className="px-3 py-3 text-center text-zinc-400 italic">—</td>
+                      <td className="px-3 py-3 text-right text-zinc-400 italic">—</td>
+                      <td className="px-3 py-3 text-right text-zinc-400 italic">—</td>
+                      <td className="px-3 py-3 text-right font-mono font-semibold text-zinc-900">
+                        {formatAmountOnly(exp.amount)}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
 
@@ -256,6 +272,19 @@ export function InvoicePreviewModal({ open = false, onOpenChange, invoice }: Inv
                         <span>{formatAmountOnly(originalVatAmount)}</span>
                       </div>
                     )}
+                    {expenses.map((exp, idx) => (
+                      <div key={idx} className="flex justify-between text-zinc-500 font-medium py-0.5">
+                        <div className="flex flex-col">
+                          <span>{exp.type} Cost</span>
+                          {exp.notes && (
+                            <span className="text-[9px] text-zinc-400 font-normal">
+                              ({exp.notes})
+                            </span>
+                          )}
+                        </div>
+                        <span className="self-start">{formatAmountOnly(exp.amount)}</span>
+                      </div>
+                    ))}
                     <div className="flex justify-between border-b pb-2 font-semibold text-zinc-800">
                       <span>Original Total</span>
                       <span>{formatAmountOnly(originalTotal)}</span>
