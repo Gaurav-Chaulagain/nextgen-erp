@@ -11,6 +11,14 @@ export interface UserItem {
   isActive: boolean;
   createdAt: Date;
   lastLogin: Date | null;
+  lastSessionInfo?: {
+    action: string;
+    timestamp: Date;
+    duration: string | null;
+    ipAddress: string | null;
+    browser?: string | null;
+    device?: string | null;
+  } | null;
 }
 
 export async function getUsersList(): Promise<UserItem[]> {
@@ -22,16 +30,36 @@ export async function getUsersList(): Promise<UserItem[]> {
     ],
   });
 
-  return users.map((u) => ({
-    id: u.id,
-    name: u.name,
-    email: u.email,
-    phone: u.phone,
-    role: u.role as Role,
-    isActive: u.isActive,
-    createdAt: u.createdAt,
-    lastLogin: u.lastLogin,
-  }));
+  const results: UserItem[] = [];
+  for (const u of users) {
+    const lastSession = await db.auditLog.findFirst({
+      where: { userId: u.id, action: { in: ["LOGIN", "LOGOUT"] } },
+      orderBy: { createdAt: "desc" }
+    });
+
+    results.push({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      phone: u.phone,
+      role: u.role as Role,
+      isActive: u.isActive,
+      createdAt: u.createdAt,
+      lastLogin: u.lastLogin,
+      lastSessionInfo: lastSession ? {
+        action: lastSession.action,
+        timestamp: lastSession.createdAt,
+        duration: lastSession.action === "LOGOUT"
+          ? (lastSession.newValues as any)?.sessionDuration || null
+          : "Active",
+        ipAddress: lastSession.ipAddress,
+        browser: (lastSession.newValues as any)?.browser || null,
+        device: (lastSession.newValues as any)?.device || null,
+      } : null
+    });
+  }
+
+  return results;
 }
 
 export interface AuditLogFilters {

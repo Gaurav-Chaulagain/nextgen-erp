@@ -76,13 +76,13 @@ export function CashFlowChart({ dailyFlow, openingBalance }: CashFlowChartProps)
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(v) => `Day ${v}`}
-                  tick={{ fill: "#a1a1aa", fontSize: 10, fontWeight: 600 }}
+                  tick={{ fill: "#71717a", fontSize: 10, fontWeight: 800 }}
                 />
                 <YAxis
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(v) => `${(v / 100000).toFixed(1)}L`}
-                  tick={{ fill: "#a1a1aa", fontSize: 10, fontWeight: 500 }}
+                  tick={{ fill: "#71717a", fontSize: 10, fontWeight: 800 }}
                 />
                 <Tooltip
                   formatter={(value: any, name?: any) => {

@@ -24,6 +24,14 @@ interface UserItem {
   isActive: boolean;
   createdAt: Date;
   lastLogin: Date | null;
+  lastSessionInfo?: {
+    action: string;
+    timestamp: string | Date;
+    duration: string | null;
+    ipAddress: string | null;
+    browser?: string | null;
+    device?: string | null;
+  } | null;
 }
 
 interface UsersPageProps {
@@ -165,12 +173,39 @@ export function UsersPage({ initialUsers, sessionUser }: UsersPageProps) {
       accessorKey: "lastLogin",
       header: "Last Active",
       cell: ({ row }) => {
-        const login = row.getValue("lastLogin") as Date | null;
-        if (!login) return <span className="text-zinc-450 italic">Never</span>;
+        const lastLogin = row.getValue("lastLogin") as Date | null;
+        const sessionInfo = row.original.lastSessionInfo;
+
+        if (!lastLogin) return <span className="text-zinc-400 italic text-[11px]">Never</span>;
+
         return (
-          <span className="text-xs font-semibold text-zinc-500">
-            {new Date(login).toLocaleDateString()} {new Date(login).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
+          <div className="flex flex-col gap-0.5 max-w-[180px] whitespace-normal">
+            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+              {new Date(lastLogin).toLocaleDateString()} {new Date(lastLogin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+            {sessionInfo && (
+              <div className="flex flex-col text-[10px] text-zinc-400 font-mono mt-0.5 leading-snug">
+                {sessionInfo.browser || sessionInfo.device ? (
+                  <span>Device: {sessionInfo.browser || "Unknown"} ({sessionInfo.device || "Unknown"})</span>
+                ) : (
+                  <span>Source: {sessionInfo.ipAddress === "Credentials-Login" ? "Form Credentials" : sessionInfo.ipAddress || "Internal"}</span>
+                )}
+                <span className="flex items-center gap-1">
+                  Status:{" "}
+                  {sessionInfo.duration === "Active" ? (
+                    <span className="inline-flex items-center gap-1 font-extrabold text-emerald-600 dark:text-emerald-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Active Now
+                    </span>
+                  ) : (
+                    <span className="text-zinc-500 font-semibold">
+                      Logged out ({sessionInfo.duration})
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
         );
       },
     },
