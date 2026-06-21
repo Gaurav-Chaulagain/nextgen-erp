@@ -16,7 +16,7 @@ import CategoriesTab from "@/components/inventory/CategoriesTab";
 import BrandsTab from "@/components/inventory/BrandsTab";
 
 type InventoryPageProps = {
-  searchParams?: Promise<{ tab?: string; search?: string; page?: string }>;
+  searchParams?: Promise<{ tab?: string; search?: string; page?: string; filter?: string }>;
 };
 
 export default async function InventoryPage({ searchParams }: InventoryPageProps) {
@@ -24,9 +24,10 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
   const tab = params?.tab ?? "stock";
   const search = params?.search ?? "";
   const page = parseInt(params?.page ?? "1") || 1;
+  const filter = params?.filter ?? "";
 
   const [itemsResp, summary, alerts, categoriesResp, brandsResp] = await Promise.all([
-    fetchInventoryItems(tab === "stock" ? { page, search, pageSize: 25 } : { page: 1, pageSize: 25 }),
+    fetchInventoryItems(tab === "stock" ? { page, search, pageSize: 25, lowStock: filter === "reorder" } : { page: 1, pageSize: 25 }),
     fetchStockSummary(),
     fetchInventoryAlerts(),
     fetchCategories(tab === "categories" ? { page, search, pageSize: 10 } : { page: 1, pageSize: 10 }),
@@ -82,10 +83,22 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
             <CardDescription>Products below reorder level across warehouses.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="mt-4 flex items-center gap-2">
+            <div className="mt-4 flex items-center justify-between gap-2">
               <Badge variant={alerts.length > 0 ? "destructive" : "secondary"}>
                 {alerts.length > 0 ? `${alerts.length} require attention` : "All good"}
               </Badge>
+              {alerts.length > 0 && (
+                <Link
+                  href={`/inventory?tab=stock${filter === "reorder" ? "" : "&filter=reorder"}`}
+                  className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${
+                    filter === "reorder"
+                      ? "bg-zinc-100 text-zinc-900 border-zinc-300 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-50 dark:border-zinc-700"
+                      : "bg-rose-600 text-white border-transparent hover:bg-rose-700 shadow-sm"
+                  }`}
+                >
+                  {filter === "reorder" ? "Show All" : "View"}
+                </Link>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -112,11 +125,23 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
       {tab === "stock" && (
         <>
           {alerts.length > 0 ? (
-            <section className="rounded-3xl border border-orange-200 bg-orange-50 p-6 dark:border-orange-900/40 dark:bg-orange-950/60 animate-fade-in">
-              <h2 className="text-lg font-semibold text-orange-900 dark:text-orange-100">Low stock alerts</h2>
-              <p className="mt-2 text-sm text-orange-700 dark:text-orange-300">
-                {alerts.length} item{alerts.length === 1 ? "" : "s"} are at or below their reorder level.
-              </p>
+            <section className="rounded-3xl border border-orange-200 bg-orange-50 p-6 dark:border-orange-900/40 dark:bg-orange-950/60 animate-fade-in flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-orange-900 dark:text-orange-100">Low stock alerts</h2>
+                <p className="mt-2 text-sm text-orange-700 dark:text-orange-300">
+                  {alerts.length} item{alerts.length === 1 ? "" : "s"} are at or below their reorder level.
+                </p>
+              </div>
+              <Link
+                href={`/inventory?tab=stock${filter === "reorder" ? "" : "&filter=reorder"}`}
+                className={`px-4 py-2 text-xs font-bold rounded-lg border transition-all w-fit ${
+                  filter === "reorder"
+                    ? "bg-white text-zinc-900 border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-50 dark:border-zinc-800"
+                    : "bg-orange-600 text-white border-transparent hover:bg-orange-700 shadow-sm"
+                }`}
+              >
+                {filter === "reorder" ? "Show All Items" : "Filter Critical Items"}
+              </Link>
             </section>
           ) : (
             <section className="rounded-3xl border border-zinc-200 bg-white p-6 text-center dark:border-zinc-800 dark:bg-zinc-950">

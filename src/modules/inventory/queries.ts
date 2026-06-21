@@ -30,6 +30,16 @@ export async function fetchInventoryItems(opts: FetchInventoryOptions = {}) {
     ];
   }
 
+  if (lowStock) {
+    const rawIds = await db.$queryRaw<{ id: string }[]>`
+      SELECT s.id FROM inventory_stock s 
+      JOIN products p ON s.product_id = p.id 
+      WHERE s.quantity <= p.reorder_level
+    `;
+    const ids = rawIds.map((r: any) => r.id);
+    where.id = { in: ids };
+  }
+
   // Fetch stocks with related product, including category and brand, and warehouse
   const [items, total] = await Promise.all([
     db.inventoryStock.findMany({
