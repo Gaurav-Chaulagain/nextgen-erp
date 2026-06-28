@@ -297,12 +297,12 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
   return (
     <div className="space-y-6">
       {/* Filters Header bar */}
-      <Card className="border border-zinc-100 shadow-sm rounded-2xl dark:border-zinc-800 dark:bg-zinc-950">
+      <Card className="border border-zinc-150/80 dark:border-zinc-800 dark:bg-zinc-950 shadow-sm rounded-2xl">
         <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <button
               onClick={onBack}
-              className="px-4 py-2 border border-zinc-200 text-xs font-bold rounded-xl text-zinc-500 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900 transition-colors"
+              className="px-4 py-2 border border-purple-200 text-xs font-bold rounded-xl text-purple-600 bg-purple-50/20 hover:bg-purple-50 dark:border-purple-900/40 dark:text-purple-400 dark:hover:bg-purple-950/30 transition-all duration-300 shadow-sm"
             >
               ← Back to Menu
             </button>
@@ -392,7 +392,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
             <button
               onClick={generateReport}
               disabled={loading}
-              className="px-4 py-2 bg-zinc-900 text-zinc-100 hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 text-xs font-bold rounded-xl flex items-center gap-2 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white dark:bg-purple-650 dark:hover:bg-purple-700 text-xs font-bold rounded-xl flex items-center gap-2 disabled:opacity-50 transition-all duration-300 shadow-md shadow-purple-500/10"
             >
               <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
               Run Query
@@ -407,18 +407,18 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
           {reportData && !loading && (
             <button
               onClick={triggerPDFDownload}
-              className="px-4 py-2.5 bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800 text-xs font-bold rounded-2xl flex items-center gap-2 border border-zinc-200/40 dark:border-zinc-800/40 transition-colors"
+              className="px-4 py-2.5 bg-purple-50 text-purple-700 hover:bg-purple-100/80 dark:bg-purple-950/20 dark:text-purple-450 dark:hover:bg-purple-900/30 text-xs font-bold rounded-2xl flex items-center gap-2 border border-purple-200/40 dark:border-purple-900/30 transition-all duration-300 shadow-sm"
             >
-              <Download className="h-4.5 w-4.5 text-zinc-500" />
+              <Download className="h-4.5 w-4.5 text-purple-500" />
               Download A4 PDF Statement
             </button>
           )}
 
           <button
             onClick={triggerExcelDownload}
-            className="px-4 py-2.5 bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800 text-xs font-bold rounded-2xl flex items-center gap-2 border border-zinc-200/40 dark:border-zinc-800/40 transition-colors"
+            className="px-4 py-2.5 bg-purple-50 text-purple-700 hover:bg-purple-100/80 dark:bg-purple-950/20 dark:text-purple-450 dark:hover:bg-purple-900/30 text-xs font-bold rounded-2xl flex items-center gap-2 border border-purple-200/40 dark:border-purple-900/30 transition-all duration-300 shadow-sm"
           >
-            <Download className="h-4.5 w-4.5 text-emerald-500" />
+            <Download className="h-4.5 w-4.5 text-purple-600 dark:text-purple-400" />
             Download Excel Spreadsheet
           </button>
         </div>
@@ -444,7 +444,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
           {/* 4. TRIAL BALANCE */}
           {reportKey === "trial_balance" && (
             <Card className="border border-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 shadow-md rounded-3xl overflow-hidden">
-              <div className="bg-zinc-900 text-zinc-100 p-6 flex items-center justify-between">
+              <div className="bg-gradient-to-r from-purple-950 via-zinc-900 to-zinc-900 text-zinc-100 p-6 flex items-center justify-between border-b border-purple-900/10">
                 <div>
                   <h2 className="text-xl font-bold tracking-tight">Analytical Trial Balance</h2>
                   <p className="text-xs text-zinc-400 font-medium mt-1">Aggregated Sum of accounts as of: {asOf}</p>
@@ -483,7 +483,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
           {/* 5. SALES SUMMARY (Chronological log of individual Invoices) */}
           {reportKey === "sales_summary" && (
             <Card className="border border-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 shadow-md rounded-3xl overflow-hidden">
-              <div className="bg-zinc-900 text-zinc-100 p-6 flex items-center justify-between">
+              <div className="bg-gradient-to-r from-purple-950 via-zinc-900 to-zinc-900 text-zinc-100 p-6 flex items-center justify-between border-b border-purple-900/10">
                 <div>
                   <h2 className="text-xl font-bold tracking-tight">Sales Chronological Log</h2>
                   <p className="text-xs text-zinc-400 font-medium mt-1">Taxable sales invoices between {dateFrom} and {dateTo}</p>
@@ -510,7 +510,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                           <button
                             onClick={() => handleViewInvoice(r.id)}
                             disabled={loadingDetail}
-                            className="px-3 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-200 text-xs rounded-lg border border-zinc-200/40 dark:border-zinc-800/40 font-bold transition-all disabled:opacity-50"
+                            className="px-3 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/20 dark:hover:bg-purple-900/30 dark:text-purple-400 text-xs rounded-lg border border-purple-200/35 dark:border-purple-900/30 font-bold transition-all disabled:opacity-50 shadow-sm"
                           >
                             View
                           </button>
@@ -536,7 +536,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
           {/* 6. ITEM-WISE SALES */}
           {reportKey === "item_wise_sales" && (
             <Card className="border border-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 shadow-md rounded-3xl overflow-hidden">
-              <div className="bg-zinc-900 text-zinc-100 p-6 flex items-center justify-between">
+              <div className="bg-gradient-to-r from-purple-950 via-zinc-900 to-zinc-900 text-zinc-100 p-6 flex items-center justify-between border-b border-purple-900/10">
                 <div>
                   <h2 className="text-xl font-bold tracking-tight">Product Sales Volumes & Profits</h2>
                   <p className="text-xs text-zinc-400 font-medium mt-1">Item-wise sales performance breakdown</p>
@@ -576,7 +576,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
           {/* 10. PROJECT PROFITABILITY */}
           {reportKey === "project_profitability" && (
             <Card className="border border-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 shadow-md rounded-3xl overflow-hidden">
-              <div className="bg-zinc-900 text-zinc-100 p-6 flex items-center justify-between">
+              <div className="bg-gradient-to-r from-purple-950 via-zinc-900 to-zinc-900 text-zinc-100 p-6 flex items-center justify-between border-b border-purple-900/10">
                 <div>
                   <h2 className="text-xl font-bold tracking-tight">Projects Contract Profitability Summary</h2>
                   <p className="text-xs text-zinc-400 font-medium mt-1">Milestones billed vs material consumption job costing margins</p>
@@ -623,7 +623,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
           {/* 12. PURCHASE SUMMARY (Chronological log of individual Purchase Orders) */}
           {reportKey === "purchase_summary" && (
             <Card className="border border-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 shadow-md rounded-3xl overflow-hidden">
-              <div className="bg-zinc-900 text-zinc-100 p-6 flex items-center justify-between">
+              <div className="bg-gradient-to-r from-purple-950 via-zinc-900 to-zinc-900 text-zinc-100 p-6 flex items-center justify-between border-b border-purple-900/10">
                 <div>
                   <h2 className="text-xl font-bold tracking-tight">Purchase Chronological Log</h2>
                   <p className="text-xs text-zinc-400 font-medium mt-1">Procurement purchase orders between {dateFrom} and {dateTo}</p>
@@ -650,7 +650,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
                           <button
                             onClick={() => handleViewPO(r.id)}
                             disabled={loadingDetail}
-                            className="px-3 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-200 text-xs rounded-lg border border-zinc-200/40 dark:border-zinc-800/40 font-bold transition-all disabled:opacity-50"
+                            className="px-3 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/20 dark:hover:bg-purple-900/30 dark:text-purple-400 text-xs rounded-lg border border-purple-200/35 dark:border-purple-900/30 font-bold transition-all disabled:opacity-50 shadow-sm"
                           >
                             View
                           </button>
@@ -791,7 +791,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
           )}
 
           <DialogFooter className="border-t border-zinc-150 dark:border-zinc-800 pt-3">
-            <Button variant="outline" className="border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800" onClick={() => setShowPOPreview(false)}>
+            <Button variant="outline" className="border-purple-200 dark:border-purple-900/50 bg-white dark:bg-zinc-950 text-purple-650 dark:text-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-900/10 hover:text-purple-700" onClick={() => setShowPOPreview(false)}>
               Close View
             </Button>
           </DialogFooter>
@@ -801,7 +801,7 @@ export function ReportViewer({ reportKey, onBack }: ReportViewerProps) {
           {/* 13. VENDOR OUTSTANDING PAYABLES */}
           {reportKey === "vendor_outstanding" && (
             <Card className="border border-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 shadow-md rounded-3xl overflow-hidden">
-              <div className="bg-zinc-900 text-zinc-100 p-6 flex items-center justify-between">
+              <div className="bg-gradient-to-r from-purple-950 via-zinc-900 to-zinc-900 text-zinc-100 p-6 flex items-center justify-between border-b border-purple-900/10">
                 <div>
                   <h2 className="text-xl font-bold tracking-tight">Vendor Outstanding Payables</h2>
                   <p className="text-xs text-zinc-400 font-medium mt-1">Outstanding balances owed to suppliers/creditors</p>

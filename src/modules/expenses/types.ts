@@ -1,6 +1,18 @@
 import { z } from "zod";
 
 export const expenseCategorySchema = z.enum([
+  "Water and Electricity",
+  "Salary",
+  "Office Rent",
+  "Registration and Renewal",
+  "Audit Fee",
+  "Repair and Maintainance",
+  "Printing and Stationery",
+  "Travelling Expenses",
+  "Bank Charges",
+  "Interest Paid",
+  "Miscellaneous Expenses",
+  "Transport Inward",
   "Shop Rent",
   "Transport Cost",
   "Staff Salary",

@@ -167,6 +167,7 @@ model User {
   auditLogs            AuditLog[]
   passwordResetTokens  PasswordResetToken[]
   expenses             Expense[]
+  incomes              Income[]
   purchaseReturns      PurchaseReturn[]
   salesReturns         SalesReturn[]
 
@@ -834,7 +835,7 @@ model PasswordResetToken {
 model Expense {
   id           String      @id @default(cuid())
   expenseCode  String      @unique @map("expense_code")
-  category     String      // Shop Rent, Transport Cost, Staff Salary, Miscellaneous
+  category     String      // Salary, Office Rent, Travelling Expenses, Miscellaneous Expenses, Water and Electricity, Registration and Renewal, Audit Fee, Repair and Maintainance, Printing and Stationery, Bank Charges, Interest Paid, Transport Inward
   amount       Decimal     @db.Decimal(14, 2)
   expenseDate  DateTime    @map("expense_date")
   paymentMethod PaymentMode @map("payment_method")
@@ -849,6 +850,30 @@ model Expense {
   @@index([category])
   @@index([createdBy])
   @@map("expenses")
+}
+
+// ============================================================================
+// 25b. INCOME
+// ============================================================================
+
+model Income {
+  id            String      @id @default(cuid())
+  incomeCode    String      @unique @map("income_code")
+  category      String      // Commission, Interest Received, Rent Received, Miscellaneous Incomes
+  amount        Decimal     @db.Decimal(14, 2)
+  incomeDate    DateTime    @map("income_date")
+  paymentMethod PaymentMode @map("payment_method")
+  notes         String?
+  createdBy     String      @map("created_by")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@index([incomeDate])
+  @@index([category])
+  @@index([createdBy])
+  @@map("incomes")
 }
 
 // ============================================================================

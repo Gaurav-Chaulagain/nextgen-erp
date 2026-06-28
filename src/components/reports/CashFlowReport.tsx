@@ -33,7 +33,7 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
 
   return (
     <Card className="border border-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 shadow-md rounded-3xl overflow-hidden animate-fade-in">
-      <div className="bg-zinc-900 text-zinc-100 p-6 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-purple-950 via-zinc-900 to-zinc-900 text-zinc-100 p-6 flex items-center justify-between border-b border-purple-900/10">
         <div>
           <h2 className="text-xl font-bold tracking-tight">Statement of Cash Flows</h2>
           <p className="text-xs text-zinc-400 font-medium mt-1">Period Ending: {data.period}</p>
