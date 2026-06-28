@@ -126,7 +126,7 @@ export default function ReportsPage() {
   ];
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in pb-12">
       <PageHeader
         title={selectedReport ? "Dynamic Report Viewer" : "Analytical Reports Menu"}
         description={selectedReport ? "Configure filters, run database queries, and download client sheets." : "Review tax compliance reports, dynamic Balance Sheets, stock valuations, and project profit margins."}
@@ -138,12 +138,18 @@ export default function ReportsPage() {
       ) : (
         <div className="space-y-12">
           {reportGroups.map((group, gIdx) => (
-            <div key={gIdx} className="space-y-4">
-              <div>
-                <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-50 tracking-wide uppercase">
-                  {group.groupName}
-                </h2>
-                <p className="text-xs text-zinc-400 font-medium">{group.desc}</p>
+            <div key={gIdx} className="space-y-6">
+              {/* Category Header */}
+              <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                <div>
+                  <h2 className="text-xs font-black text-zinc-900 dark:text-zinc-50 tracking-wider uppercase">
+                    {group.groupName}
+                  </h2>
+                  <p className="text-[11px] text-zinc-400 font-medium mt-0.5">{group.desc}</p>
+                </div>
+                <span className="text-[10px] font-bold bg-purple-500/5 text-purple-600 dark:text-purple-400 border border-purple-200/20 px-2.5 py-0.5 rounded-full">
+                  {group.reports.length} Statements
+                </span>
               </div>
 
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -152,26 +158,26 @@ export default function ReportsPage() {
                   return (
                     <Card
                       key={rep.key}
-                      className="border border-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 shadow-sm rounded-2xl flex flex-col justify-between hover:border-zinc-200 dark:hover:border-zinc-700 transition-all duration-300"
+                      className="group border border-zinc-150/80 dark:border-zinc-800/80 dark:bg-zinc-950 shadow-sm rounded-2xl flex flex-col justify-between hover:border-purple-300/60 dark:hover:border-purple-800/50 hover:shadow-md hover:shadow-purple-500/5 hover:-translate-y-0.5 transition-all duration-300"
                     >
                       <CardHeader className="flex flex-row items-start justify-between pb-4">
                         <div className="space-y-1 pr-4">
-                          <CardTitle className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
+                          <CardTitle className="text-sm font-bold text-zinc-900 dark:text-zinc-50 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-300">
                             {rep.title}
                           </CardTitle>
                         </div>
-                        <div className={`p-2.5 rounded-xl ${rep.color}`}>
+                        <div className={`p-2.5 rounded-xl transition-transform group-hover:scale-105 duration-300 ${rep.color}`}>
                           <Icon className="h-4.5 w-4.5" />
                         </div>
                       </CardHeader>
 
                       <CardContent className="pt-0 pb-6 flex-grow flex flex-col justify-between space-y-4">
-                        <p className="text-xs text-zinc-400 font-medium leading-relaxed">
+                        <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium leading-relaxed">
                           {rep.desc}
                         </p>
                         <button
                           onClick={() => setSelectedReport(rep.key)}
-                          className="w-full py-2.5 text-center text-xs font-bold text-primary bg-primary/5 hover:bg-primary/10 rounded-xl transition-all duration-300"
+                          className="w-full py-2.5 text-center text-xs font-bold text-purple-600 bg-purple-50/50 hover:bg-purple-100 dark:text-purple-400 dark:bg-purple-950/20 dark:hover:bg-purple-900/30 rounded-xl transition-all duration-300 border border-purple-100/50 dark:border-purple-900/30 hover:shadow-sm hover:shadow-purple-500/5"
                         >
                           View Statement
                         </button>

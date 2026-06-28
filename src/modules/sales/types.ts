@@ -30,6 +30,7 @@ export const createInvoiceSchema = z.object({
   dueDate: dateInput.optional(),
   paymentMethod: paymentInputMethodSchema.optional(),
   discountPercent: moneyInput.optional(),
+  discountAmount: moneyInput.optional(),
   vatPercent: moneyInput.optional(),
   notes: z.string().optional(),
   items: z.array(createInvoiceItemSchema).min(1, "At least one item is required"),

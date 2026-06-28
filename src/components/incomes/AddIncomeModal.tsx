@@ -5,21 +5,21 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogFooter, Dialo
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { createExpense } from '@/modules/expenses/actions';
+import { createIncome } from '@/modules/incomes/actions';
 import { toast } from 'sonner';
 import { DualDatePicker } from '@/components/shared/DualDatePicker';
 import { Plus, CreditCard, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-interface AddExpenseModalProps {
+interface AddIncomeModalProps {
   userId: string;
 }
 
-export function AddExpenseModal({ userId }: AddExpenseModalProps) {
+export function AddIncomeModal({ userId }: AddIncomeModalProps) {
   const [open, setOpen] = useState(false);
-  const [category, setCategory] = useState("Office Rent");
+  const [category, setCategory] = useState("Commission");
   const [amount, setAmount] = useState("");
-  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split("T")[0]);
+  const [incomeDate, setIncomeDate] = useState(new Date().toISOString().split("T")[0]);
   const [paymentMethod, setPaymentMethod] = useState<any>("CASH");
   const [notes, setNotes] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -27,75 +27,67 @@ export function AddExpenseModal({ userId }: AddExpenseModalProps) {
 
   const handleSubmit = () => {
     if (!amount || parseFloat(amount) <= 0) {
-      toast.error("Please enter a valid expense amount");
+      toast.error("Please enter a valid income amount");
       return;
     }
-    if (!expenseDate) {
-      toast.error("Please select an expense date");
+    if (!incomeDate) {
+      toast.error("Please select an income date");
       return;
     }
 
     startTransition(async () => {
       try {
-        await createExpense({
+        await createIncome({
           category: category as any,
           amount: Number(amount),
-          expenseDate: new Date(expenseDate),
+          incomeDate: new Date(incomeDate),
           paymentMethod,
           notes: notes || undefined
         }, userId);
 
-        toast.success("Operating expense logged successfully! Cash book entry posted.");
+        toast.success("Operating income logged successfully! Cash book entry posted.");
         setOpen(false);
         setAmount("");
         setNotes("");
         router.refresh();
       } catch (err: any) {
-        toast.error("Error: " + (err.message || "Failed to log expense"));
+        toast.error("Error: " + (err.message || "Failed to log income"));
       }
     });
   };
 
-  const selectClass = "w-full h-10 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-rose-400/50 focus:border-rose-400";
+  const selectClass = "w-full h-10 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-450/50 focus:border-emerald-400";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-md border-none transition-all">
-          <Plus size={16} /> Log Expense
+        <Button className="gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md border-none transition-all">
+          <Plus size={16} /> Log Income
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md border-zinc-200 bg-white text-zinc-900 rounded-2xl shadow-xl">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-zinc-900 flex items-center gap-2">
-            <CreditCard size={18} className="text-rose-500" /> Log Operating Expense
+            <CreditCard size={18} className="text-emerald-500" /> Log Operating Income
           </DialogTitle>
           <DialogDescription className="text-zinc-500 text-xs mt-0.5">
-            Record a daily operations outflow (e.g. Office Rent, Salary, Miscellaneous Expenses). This immediately decrements the selected vault cash balance.
+            Record a daily operations inflow (e.g. Commission, Interest, Rent, Miscellaneous). This immediately increments the selected vault cash balance.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-3">
           <div className="space-y-1.5">
-            <Label htmlFor="category" className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">Expense Category *</Label>
+            <Label htmlFor="category" className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">Income Category *</Label>
             <select
               id="category"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className={selectClass}
             >
-              <option value="Water and Electricity">Water and Electricity</option>
-              <option value="Salary">Salary</option>
-              <option value="Office Rent">Office Rent</option>
-              <option value="Registration and Renewal">Registration and Renewal</option>
-              <option value="Audit Fee">Audit Fee</option>
-              <option value="Repair and Maintainance">Repair and Maintainance</option>
-              <option value="Printing and Stationery">Printing and Stationery</option>
-              <option value="Travelling Expenses">Travelling Expenses</option>
-              <option value="Bank Charges">Bank Charges</option>
-              <option value="Interest Paid">Interest Paid</option>
-              <option value="Miscellaneous Expenses">Miscellaneous Expenses</option>
-              <option value="Transport Inward">Transport Inward</option>
+              <option value="Commission">Commission</option>
+              <option value="Interest Received">Interest Received</option>
+              <option value="Rent Received">Rent Received</option>
+              <option value="Miscellaneous Incomes">Miscellaneous Incomes</option>
             </select>
           </div>
 
@@ -108,22 +100,22 @@ export function AddExpenseModal({ userId }: AddExpenseModalProps) {
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="bg-white border-zinc-300 text-zinc-900 h-10 font-mono focus:ring-rose-400/50 focus:border-rose-400"
+                className="bg-white border-zinc-300 text-zinc-900 h-10 font-mono focus:ring-emerald-400/50 focus:border-emerald-400"
               />
             </div>
 
             <div>
               <DualDatePicker
                 label="Payment Date"
-                value={expenseDate}
-                onChange={(date) => setExpenseDate(date.toISOString().split("T")[0])}
+                value={incomeDate}
+                onChange={(date) => setIncomeDate(date.toISOString().split("T")[0])}
                 required
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="paymentMethod" className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">Disbursement Vault *</Label>
+            <Label htmlFor="paymentMethod" className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">Deposit Vault *</Label>
             <select
               id="paymentMethod"
               value={paymentMethod}
@@ -139,13 +131,13 @@ export function AddExpenseModal({ userId }: AddExpenseModalProps) {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="notes" className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">Expense Notes / Memo</Label>
+            <Label htmlFor="notes" className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">Income Notes / Memo</Label>
             <textarea
               id="notes"
-              placeholder="e.g. Office rent for Baisakh month, petrol expense for site visit..."
+              placeholder="e.g. Commission from supplier, interest received from deposit, etc..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full min-h-16 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-rose-400/50 focus:border-rose-400"
+              className="w-full min-h-16 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-450/50 focus:border-emerald-400"
             />
           </div>
         </div>
@@ -162,7 +154,7 @@ export function AddExpenseModal({ userId }: AddExpenseModalProps) {
           <Button
             onClick={handleSubmit}
             disabled={isPending}
-            className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white font-semibold shadow-md border-none"
+            className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold shadow-md border-none"
           >
             <Save size={14} className="mr-1" /> Log Operation
           </Button>
@@ -172,4 +164,4 @@ export function AddExpenseModal({ userId }: AddExpenseModalProps) {
   );
 }
 
-export default AddExpenseModal;
+export default AddIncomeModal;

@@ -153,7 +153,8 @@ export async function createInvoice(data: CreateInvoiceInput, passedUserId?: str
     const invoiceDate = toDate(parsed.invoiceDate);
     const dueDate = parsed.dueDate ? toDate(parsed.dueDate) : null;
     const vatPercent = parsed.vatPercent !== undefined ? toDecimal(parsed.vatPercent) : new Decimal(13);
-    const discountPercent = toDecimal(parsed.discountPercent);
+    let discountPercent = toDecimal(parsed.discountPercent);
+    let discountAmount = toDecimal(parsed.discountAmount);
 
     let subtotal = new Decimal(0);
     const preparedItems = [];
@@ -196,7 +197,14 @@ export async function createInvoice(data: CreateInvoiceInput, passedUserId?: str
       preparedItems.push({ ...item, unitPrice, totalPrice, stock, factor, baseQtyEquivalent, purchasePrice });
     }
 
-    const discountAmount = subtotal.times(discountPercent).div(100);
+    if (parsed.discountAmount !== undefined && parsed.discountAmount !== null) {
+      discountAmount = toDecimal(parsed.discountAmount);
+      discountPercent = subtotal.greaterThan(0)
+        ? discountAmount.times(100).div(subtotal).toDecimalPlaces(2)
+        : new Decimal(0);
+    } else {
+      discountAmount = subtotal.times(discountPercent).div(100).toDecimalPlaces(2);
+    }
     const taxableAmount = subtotal.minus(discountAmount);
     const vatAmount = taxableAmount.times(vatPercent).div(100);
     const totalAmount = taxableAmount.plus(vatAmount);

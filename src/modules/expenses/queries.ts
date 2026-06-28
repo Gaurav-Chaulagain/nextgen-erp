@@ -56,8 +56,17 @@ export async function getExpenses(opts: GetExpensesOptions = {}) {
     db.expense.count({ where }),
   ]);
 
+  const mappedExpenses = expenses.map((e: any) => {
+    let category = e.category;
+    if (category === "Staff Salary") category = "Salary";
+    else if (category === "Shop Rent") category = "Office Rent";
+    else if (category === "Transport Cost") category = "Transport Inward";
+    else if (category === "Miscellaneous") category = "Miscellaneous Expenses";
+    return { ...e, category };
+  });
+
   return serializeForClient({
-    data: expenses,
+    data: mappedExpenses,
     availableMonths,
     pagination: { page, pageSize, total },
   });
@@ -75,9 +84,31 @@ export async function getExpenseStats() {
 
   const totalThisMonth = expenses.reduce((sum, e) => sum.plus(e.amount), new Decimal(0));
 
-  const categories = ["Shop Rent", "Transport Cost", "Staff Salary", "Miscellaneous"];
+  const mappedExpenses = expenses.map((e: any) => {
+    let category = e.category;
+    if (category === "Staff Salary") category = "Salary";
+    else if (category === "Shop Rent") category = "Office Rent";
+    else if (category === "Transport Cost") category = "Transport Inward";
+    else if (category === "Miscellaneous") category = "Miscellaneous Expenses";
+    return { ...e, category };
+  });
+
+  const categories = [
+    "Water and Electricity",
+    "Salary",
+    "Office Rent",
+    "Registration and Renewal",
+    "Audit Fee",
+    "Repair and Maintainance",
+    "Printing and Stationery",
+    "Travelling Expenses",
+    "Bank Charges",
+    "Interest Paid",
+    "Miscellaneous Expenses",
+    "Transport Inward"
+  ];
   const breakdown = categories.map((cat) => {
-    const val = expenses
+    const val = mappedExpenses
       .filter((e) => e.category === cat)
       .reduce((sum, e) => sum.plus(e.amount), new Decimal(0));
     return {

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "../../auth-middleware";
 import { Sidebar } from "../../components/layout/Sidebar";
 import { Header } from "../../components/layout/Header";
+import { InactivityTimeout } from "../../components/layout/InactivityTimeout";
 import { getDb } from "@/lib/db";
 import Decimal from "decimal.js";
 
@@ -70,6 +71,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-zinc-50 dark:bg-zinc-950 font-sans">
+      <InactivityTimeout />
       {/* Sidebar Navigation */}
       <Sidebar user={user} />
 

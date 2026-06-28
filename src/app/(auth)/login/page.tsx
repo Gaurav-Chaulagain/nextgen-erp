@@ -1,9 +1,9 @@
 "use client";
 
-import React, { FormEvent, useState } from "react";
+import React, { FormEvent, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { AlertTriangle, Info, Eye, EyeOff } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -15,7 +15,21 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const reason = params.get("reason");
+      const err = params.get("error");
+      if (reason === "timeout") {
+        setInfoMessage("Your session has timed out due to 5 minutes of inactivity. Please log in again.");
+      } else if (err === "unauthorized") {
+        setErrorMessage("Access Denied: You do not have permission to access that module.");
+      }
+    }
+  }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -173,6 +187,13 @@ export default function LoginPage() {
                   </button>
                 </div>
               </div>
+
+              {infoMessage && (
+                <div className="flex items-start gap-2.5 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs text-amber-200 animate-fade-in">
+                  <Info className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                  <p className="leading-relaxed">{infoMessage}</p>
+                </div>
+              )}
 
               {errorMessage && (
                 <div className="flex items-start gap-2.5 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-3.5 text-xs text-rose-200 animate-fade-in">

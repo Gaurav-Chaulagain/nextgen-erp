@@ -11,7 +11,7 @@ async function main() {
   const db = await getDb();
   
   // Read backup
-  const backupPath = '/home/rabin/Documents/NextGenERP/NextGenERP_FullBackup_2026-06-21.json';
+  const backupPath = '/home/rabin/Documents/NextGenERP/NextGenERP_FullBackup_2026-06-28.json';
   const backup = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
   const backupData = backup.data || {};
 
@@ -40,7 +40,9 @@ async function main() {
     { name: "fixedAsset", key: "fixedAssets" },
     { name: "depreciationEntry", key: "depreciation" },
     { name: "fiscalYear", key: "fiscalYears" },
-    { name: "expense", key: "expenses" }
+    { name: "expense", key: "expenses" },
+    { name: "income", key: "incomes" },
+    { name: "auditLog", key: "auditLogs" }
   ];
 
   let allMatch = true;

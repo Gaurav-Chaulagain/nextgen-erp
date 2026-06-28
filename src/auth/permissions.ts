@@ -13,7 +13,8 @@ export type Module =
   | "cashbook"
   | "reports"
   | "users"
-  | "expenses";
+  | "expenses"
+  | "incomes";
 
 // Map each role to its allowed modules and the actions permitted within each module
 const PERMISSIONS: Record<Role, Partial<Record<Module, Action[]>>> = {
@@ -28,6 +29,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Module, Action[]>>> = {
     reports: ["view", "create", "edit", "delete", "export", "approve"],
     users: ["view", "create", "edit", "delete", "export", "approve"],
     expenses: ["view", "create", "edit", "delete", "export", "approve"],
+    incomes: ["view", "create", "edit", "delete", "export", "approve"],
   },
   OWNER: {
     dashboard: ["view", "create", "edit", "delete", "export", "approve"],
@@ -40,6 +42,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Module, Action[]>>> = {
     reports: ["view", "create", "edit", "delete", "export", "approve"],
     users: ["view"], // Owner only has view-only access to user management
     expenses: ["view", "create", "edit", "delete", "export", "approve"],
+    incomes: ["view", "create", "edit", "delete", "export", "approve"],
   },
   MANAGER: {
     dashboard: ["view", "create", "edit", "delete", "export", "approve"],
@@ -52,6 +55,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Module, Action[]>>> = {
     reports: ["view", "create", "edit", "delete", "export", "approve"],
     users: [], // Managers do not manage users
     expenses: ["view", "create", "edit", "delete", "export", "approve"],
+    incomes: ["view", "create", "edit", "delete", "export", "approve"],
   },
   SALES_STAFF: {
     dashboard: ["view"],
@@ -64,6 +68,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Module, Action[]>>> = {
     purchase: [],
     users: [],
     expenses: ["view"],
+    incomes: ["view"],
   },
   PURCHASE_STAFF: {
     dashboard: ["view"],
@@ -76,6 +81,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Module, Action[]>>> = {
     cashbook: ["view", "create", "edit"], // LTD access: view, create, edit cashbook entries
     users: [],
     expenses: ["view"],
+    incomes: ["view"],
   },
   VIEWER: {
     dashboard: ["view"],
@@ -88,6 +94,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Module, Action[]>>> = {
     reports: ["view"],
     users: [],
     expenses: ["view"],
+    incomes: ["view"],
   },
 };
 

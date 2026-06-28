@@ -59,6 +59,8 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [items, setItems] = useState<LineItem[]>([]);
   const [discountPercent, setDiscountPercent] = useState(0);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [discountMode, setDiscountMode] = useState<"percent" | "amount">("percent");
   const [vatEnabled, setVatEnabled] = useState(true);
   const [paymentNow, setPaymentNow] = useState(0);
   const [notes, setNotes] = useState("");
@@ -68,17 +70,31 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
 
   const selectedCustomer = customers.find((customer) => customer.id === customerId);
 
-  const totals = useMemo(() => {
-    const subtotal = items.reduce((sum, item) => {
+  const subtotal = useMemo(() => {
+    return items.reduce((sum, item) => {
       const gross = item.qty * item.unitPrice;
       return sum + gross - gross * (item.discountPercent / 100);
     }, 0);
-    const discountAmount = subtotal * (discountPercent / 100);
-    const taxable = subtotal - discountAmount;
+  }, [items]);
+
+  const { currentDiscountPercent, currentDiscountAmount } = useMemo(() => {
+    if (discountMode === "amount") {
+      const amt = Math.min(discountAmount, subtotal);
+      const pct = subtotal > 0 ? (amt / subtotal) * 100 : 0;
+      return { currentDiscountPercent: pct, currentDiscountAmount: amt };
+    } else {
+      const pct = discountPercent;
+      const amt = (subtotal * pct) / 100;
+      return { currentDiscountPercent: pct, currentDiscountAmount: amt };
+    }
+  }, [discountMode, discountPercent, discountAmount, subtotal]);
+
+  const totals = useMemo(() => {
+    const taxable = subtotal - currentDiscountAmount;
     const vatAmount = vatEnabled ? taxable * VAT_RATE : 0;
     const total = taxable + vatAmount;
-    return { subtotal, discountAmount, vatAmount, total, balance: Math.max(0, total - paymentNow) };
-  }, [discountPercent, items, paymentNow, vatEnabled]);
+    return { subtotal, discountAmount: currentDiscountAmount, vatAmount, total, balance: Math.max(0, total - paymentNow) };
+  }, [subtotal, currentDiscountAmount, paymentNow, vatEnabled]);
 
   const addLine = () => {
     const product = products[0];
@@ -156,7 +172,8 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
       invoiceDate,
       dueDate: dueDate || undefined,
       paymentMethod: paymentMethod as any,
-      discountPercent: Number(discountPercent),
+      discountPercent: Number(currentDiscountPercent),
+      discountAmount: Number(currentDiscountAmount),
       vatPercent: vatEnabled ? 13 : 0,
       notes: notes || undefined,
       initialPaymentAmount: Number(paymentNow),
@@ -204,6 +221,8 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
         setStep(1);
         setItems([]);
         setDiscountPercent(0);
+        setDiscountAmount(0);
+        setDiscountMode("percent");
         setPaymentNow(0);
         setNotes("");
         router.refresh();
@@ -418,14 +437,45 @@ export function CreateInvoiceForm({ customers, products, projects, warehouses }:
 
               {step === 3 && (
                 <div className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-4 sm:grid-cols-3">
                     <div>
                       <label className="text-sm font-medium">Invoice Discount %</label>
-                      <Input type="number" value={discountPercent} onChange={(event) => setDiscountPercent(Number(event.target.value))} />
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="any"
+                        value={discountMode === "percent" ? discountPercent : (subtotal > 0 ? Number(((currentDiscountAmount / subtotal) * 100).toFixed(2)) : 0)}
+                        onChange={(event) => {
+                          const val = event.target.value === "" ? 0 : Number(event.target.value);
+                          setDiscountPercent(val);
+                          setDiscountMode("percent");
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Invoice Discount Amount (NPR)</label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={subtotal}
+                        step="any"
+                        value={discountMode === "amount" ? discountAmount : Number(currentDiscountAmount.toFixed(2))}
+                        onChange={(event) => {
+                          const val = event.target.value === "" ? 0 : Number(event.target.value);
+                          setDiscountAmount(val);
+                          setDiscountMode("amount");
+                        }}
+                      />
                     </div>
                     <div>
                       <label className="text-sm font-medium">Payment Received Now</label>
-                      <Input type="number" value={paymentNow} max={totals.total} onChange={(event) => setPaymentNow(Number(event.target.value))} />
+                      <Input
+                        type="number"
+                        value={paymentNow}
+                        max={totals.total}
+                        onChange={(event) => setPaymentNow(event.target.value === "" ? 0 : Number(event.target.value))}
+                      />
                     </div>
                   </div>
                   <label className="flex items-center gap-2 text-sm font-medium">
