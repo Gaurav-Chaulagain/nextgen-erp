@@ -13,6 +13,8 @@ import { RecordPaymentModal } from "./RecordPaymentModal";
 import { fetchUnpaidInvoicesAction } from "@/modules/sales/actions";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
 
 interface OutstandingDuesTableProps {
   dues: OutstandingDueSchema[];
@@ -22,9 +24,10 @@ interface OutstandingDuesTableProps {
     total: number;
   };
   searchQuery: string;
+  role?: string;
 }
 
-export function OutstandingDuesTable({ dues, pagination, searchQuery }: OutstandingDuesTableProps) {
+export function OutstandingDuesTable({ dues, pagination, searchQuery, role }: OutstandingDuesTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -154,18 +157,20 @@ export function OutstandingDuesTable({ dues, pagination, searchQuery }: Outstand
       header: "Actions",
       cell: ({ row }) => (
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-green-200 hover:bg-green-50 text-green-700 dark:border-green-900/30 dark:hover:bg-green-950/20"
-            disabled={loadingInvoices && selectedCustomer?.id === row.original.customerId}
-            onClick={() => handlePaymentClick({ id: row.original.customerId, name: row.original.customerName })}
-          >
-            {loadingInvoices && selectedCustomer?.id === row.original.customerId ? (
-              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-            ) : null}
-            Payment
-          </Button>
+          {hasPermission(role as Role, "sales", "edit") && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-green-200 hover:bg-green-50 text-green-700 dark:border-green-900/30 dark:hover:bg-green-950/20"
+              disabled={loadingInvoices && selectedCustomer?.id === row.original.customerId}
+              onClick={() => handlePaymentClick({ id: row.original.customerId, name: row.original.customerName })}
+            >
+              {loadingInvoices && selectedCustomer?.id === row.original.customerId ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              Payment
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

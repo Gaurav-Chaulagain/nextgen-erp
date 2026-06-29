@@ -23,6 +23,8 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +61,7 @@ interface IncomesPageProps {
     breakdown: Array<{ category: string; amount: string }>;
   };
   userId: string;
+  role?: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -234,6 +237,7 @@ export function IncomesPage({
   selectedMonthFilter,
   stats,
   userId,
+  role,
 }: IncomesPageProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -381,7 +385,7 @@ export function IncomesPage({
           title="Operating Incomes Ledger"
           description="Log daily running revenues, commissions, interest, rent yields, and double-entry vault allocations."
         />
-        <AddIncomeModal userId={userId} />
+        {hasPermission(role as Role, "incomes", "create") && <AddIncomeModal userId={userId} />}
       </div>
 
       {/* KPI Stats Grid */}
@@ -557,23 +561,25 @@ export function IncomesPage({
                         >
                           <Eye size={14} />
                         </button>
-                        {/* Edit */}
-                        <button
-                          onClick={() => openEdit(e)}
-                          className="p-1.5 text-zinc-500 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-all"
-                          title="Edit income"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        {/* Delete */}
-                        <button
-                          onClick={() => handleDelete(e.id, e.incomeCode)}
-                          disabled={isPending}
-                          className="p-1.5 text-zinc-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all"
-                          title="Delete income"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {hasPermission(role as Role, "incomes", "edit") && (
+                          <button
+                            onClick={() => openEdit(e)}
+                            className="p-1.5 text-zinc-500 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-all"
+                            title="Edit income"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        )}
+                        {hasPermission(role as Role, "incomes", "delete") && (
+                          <button
+                            onClick={() => handleDelete(e.id, e.incomeCode)}
+                            disabled={isPending}
+                            className="p-1.5 text-zinc-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all"
+                            title="Delete income"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

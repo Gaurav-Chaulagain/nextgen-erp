@@ -12,6 +12,8 @@ import { SupplierLedgerModal } from "./SupplierLedgerModal";
 import { EditSupplierModal } from "./EditSupplierModal";
 import { deleteSupplier, updateSupplier } from "@/modules/purchase/actions";
 import { toast } from "sonner";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
 
 interface SupplierData {
   id: string;
@@ -38,9 +40,10 @@ interface SupplierListTableProps {
   };
   searchQuery: string;
   userId: string;
+  role?: string;
 }
 
-export function SupplierListTable({ suppliers: initialSuppliers, pagination, searchQuery, userId }: SupplierListTableProps) {
+export function SupplierListTable({ suppliers: initialSuppliers, pagination, searchQuery, userId, role }: SupplierListTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -240,22 +243,26 @@ export function SupplierListTable({ suppliers: initialSuppliers, pagination, sea
                           <BookOpen className="h-3.5 w-3.5" />
                           Ledger
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenEdit(supplier)}
-                          className="h-8 w-8 rounded-lg text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteClick(supplier)}
-                          className="h-8 w-8 rounded-lg text-zinc-400 hover:text-rose-600 dark:text-zinc-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {hasPermission(role as Role, "purchase", "edit") && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenEdit(supplier)}
+                            className="h-8 w-8 rounded-lg text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {hasPermission(role as Role, "purchase", "delete") && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteClick(supplier)}
+                            className="h-8 w-8 rounded-lg text-zinc-400 hover:text-rose-600 dark:text-zinc-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>

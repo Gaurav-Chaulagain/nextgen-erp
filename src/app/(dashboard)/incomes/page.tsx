@@ -30,6 +30,7 @@ export default async function IncomesRoutePage({ searchParams }: IncomesPageProp
       selectedMonthFilter={month}
       stats={stats}
       userId={userId}
+      role={user?.role ?? "VIEWER"}
     />
   );
 }

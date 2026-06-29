@@ -9,6 +9,9 @@ import { PurchaseStats } from "@/components/purchase/PurchaseStats";
 import { PurchaseReturnsTab } from "@/components/purchase/PurchaseReturnsTab";
 import { getPurchaseOrders, getPurchaseStats, getSuppliers, getPurchaseReturns } from "@/modules/purchase/queries";
 import { getCurrentUser } from "@/auth/session";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
+import { redirect } from "next/navigation";
 
 type PurchasePageProps = {
   searchParams?: Promise<{ tab?: string; page?: string; search?: string }>;
@@ -16,7 +19,14 @@ type PurchasePageProps = {
 
 export default async function PurchasePage({ searchParams }: PurchasePageProps) {
   const user = await getCurrentUser();
-  const userId = user?.id || "";
+  if (!user) {
+    redirect("/login");
+  }
+  if (!hasPermission(user.role as Role, "purchase", "view")) {
+    redirect("/dashboard");
+  }
+
+  const userId = user.id;
   const params = await searchParams;
   const tab = params?.tab ?? "orders";
   const search = params?.search ?? "";
@@ -84,7 +94,7 @@ export default async function PurchasePage({ searchParams }: PurchasePageProps) 
               <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Purchase Orders</h2>
               <p className="text-sm text-zinc-500 dark:text-zinc-400">Track vendor orders, receipts, and payments.</p>
             </div>
-            <NewPurchaseOrderForm userId={userId} />
+            {hasPermission(user.role as Role, "purchase", "create") && <NewPurchaseOrderForm userId={userId} />}
           </div>
 
           {orders.length === 0 && !search ? (
@@ -94,7 +104,7 @@ export default async function PurchasePage({ searchParams }: PurchasePageProps) 
               </CardContent>
             </Card>
           ) : (
-            <PurchaseOrderTable orders={orders} pagination={pagination} searchQuery={search} userId={userId} />
+            <PurchaseOrderTable orders={orders} pagination={pagination} searchQuery={search} userId={userId} role={user.role} />
           )}
         </section>
       )}
@@ -106,7 +116,7 @@ export default async function PurchasePage({ searchParams }: PurchasePageProps) 
               <h2 className="text-lg font-semibold">Suppliers & Vendors</h2>
               <p className="text-sm text-zinc-500">Active vendor accounts, contact details, PAN info, and double-entry payables.</p>
             </div>
-            <AddSupplierModal userId={userId} />
+            {hasPermission(user.role as Role, "purchase", "create") && <AddSupplierModal userId={userId} />}
           </div>
           {suppliers.length === 0 && !search ? (
             <Card className="border border-dashed">
@@ -115,13 +125,13 @@ export default async function PurchasePage({ searchParams }: PurchasePageProps) 
               </CardContent>
             </Card>
           ) : (
-            <SupplierListTable suppliers={suppliers as any} pagination={suppliersPagination} searchQuery={suppliersSearch} userId={userId} />
+            <SupplierListTable suppliers={suppliers as any} pagination={suppliersPagination} searchQuery={suppliersSearch} userId={userId} role={user.role} />
           )}
         </section>
       )}
 
       {tab === "returns" && (
-        <PurchaseReturnsTab returns={returns} pagination={returnsPagination} searchQuery={returnsSearch} userId={userId} />
+        <PurchaseReturnsTab returns={returns} pagination={returnsPagination} searchQuery={returnsSearch} userId={userId} role={user.role} />
       )}
     </div>
   );

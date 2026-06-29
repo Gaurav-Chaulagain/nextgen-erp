@@ -3,6 +3,7 @@
 import { getCurrentUser } from "@/auth/session";
 import { getDb } from "@/lib/db";
 import { nextCode, serializeForClient } from "@/lib/utils";
+import { checkServerPermission } from "@/auth/permissions.server";
 import { getSystemSettings } from "../../lib/settings-store";
 import Decimal from "decimal.js";
 import type { ProjectStatus } from "./types";
@@ -69,6 +70,7 @@ async function latestCustomerBalance(tx: any, customerId: string) {
 }
 
 export async function createProject(data: CreateProjectInput, userId?: string) {
+  await checkServerPermission("projects", "create");
   const parsed = createProjectSchema.parse(data);
   const db = await getDb();
   const createdBy = await resolveUserId(db, userId);
@@ -164,6 +166,7 @@ export async function createProject(data: CreateProjectInput, userId?: string) {
 }
 
 export async function updateProject(id: string, data: UpdateProjectInput, userId?: string) {
+  await checkServerPermission("projects", "edit");
   const parsed = updateProjectSchema.parse(data);
   const db = await getDb();
   const createdBy = await resolveUserId(db, userId);
@@ -208,6 +211,7 @@ export async function updateProject(id: string, data: UpdateProjectInput, userId
 }
 
 export async function updateProjectStatus(id: string, status: ProjectStatus, userId?: string) {
+  await checkServerPermission("projects", "edit");
   const db = await getDb();
   const createdBy = await resolveUserId(db, userId);
 
@@ -238,6 +242,7 @@ export async function updateProjectStatus(id: string, status: ProjectStatus, use
 }
 
 export async function closeProject(id: string, userId?: string) {
+  await checkServerPermission("projects", "edit");
   const db = await getDb();
   const createdBy = await resolveUserId(db, userId);
 
@@ -268,6 +273,7 @@ export async function closeProject(id: string, userId?: string) {
 }
 
 export async function issueSupplyToProject(data: IssueSupplyInput, userId?: string) {
+  await checkServerPermission("projects", "edit");
   const parsed = issueSupplySchema.parse(data);
   const db = await getDb();
   const createdBy = await resolveUserId(db, userId);
@@ -481,6 +487,7 @@ export async function fetchInvoiceByIdAction(id: string) {
 }
 
 export async function deleteProject(id: string, userId?: string) {
+  await checkServerPermission("projects", "delete");
   const db = await getDb();
   const activeUserId = await resolveUserId(db, userId);
 

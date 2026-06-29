@@ -50,7 +50,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Module, Action[]>>> = {
     purchase: ["view", "create", "edit", "delete", "export", "approve"],
     sales: ["view", "create", "edit", "delete", "export", "approve"],
     projects: ["view", "create", "edit", "delete", "export", "approve"],
-    ledger: ["view"], // Managers can view ledger but not reverse/edit it
+    ledger: ["view", "create", "edit"], // Managers have LTD ledger access
     cashbook: ["view", "create", "edit", "delete", "export", "approve"],
     reports: ["view", "create", "edit", "delete", "export", "approve"],
     users: [], // Managers do not manage users
@@ -61,7 +61,7 @@ const PERMISSIONS: Record<Role, Partial<Record<Module, Action[]>>> = {
     dashboard: ["view"],
     sales: ["view", "create", "edit", "delete", "export", "approve"],
     cashbook: ["view", "create", "edit"], // LTD access: view, create, edit cashbook entries (no delete/approve)
-    inventory: ["view"], // LTD access: view inventory
+    inventory: ["view", "create", "edit"], // LTD access: view, create, edit inventory
     ledger: [], // NO access
     projects: ["view", "create", "edit"], // LTD access: view, create, edit projects
     reports: [], // NO access

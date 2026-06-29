@@ -13,6 +13,8 @@ import { deleteInventoryProduct } from "@/modules/inventory/actions";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { formatUomDisplay } from "@/lib/uom";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
 
 interface InventoryTableProps {
   items: InventoryItemSchema[];
@@ -22,9 +24,10 @@ interface InventoryTableProps {
     total: number;
   };
   searchQuery: string;
+  role?: string;
 }
 
-export function InventoryTable({ items, pagination, searchQuery }: InventoryTableProps) {
+export function InventoryTable({ items, pagination, searchQuery, role }: InventoryTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -155,7 +158,7 @@ export function InventoryTable({ items, pagination, searchQuery }: InventoryTabl
           row.original.altSalesUnit || row.original.purchaseUnit
         );
         return (
-          <span className="font-bold font-mono text-amber-600 dark:text-amber-500">
+          <span className="font-bold font-mono text-amber-600 dark:text-amber-50">
             {display}
           </span>
         );
@@ -179,36 +182,49 @@ export function InventoryTable({ items, pagination, searchQuery }: InventoryTabl
         </Badge>
       ),
     },
-    {
+  ];
+
+  const canEdit = hasPermission(role as Role, "inventory", "edit");
+  const canDelete = hasPermission(role as Role, "inventory", "delete");
+
+  if (canEdit || canDelete) {
+    columns.push({
       id: 'actions',
       header: 'Actions',
       cell: ({ row }) => (
         <div className="flex items-center gap-1.5">
-          <Button size="sm" variant="ghost" onClick={() => setSelectedStockId(row.original.id)} className="h-8 px-2.5 rounded-lg text-zinc-600 hover:text-zinc-950 font-bold border border-zinc-150">
-            Adjust
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setSelectedProductId(row.original.productId)} className="h-8 px-2.5 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 font-bold border border-amber-200">
-            Edit
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={isPending}
-            onClick={() => handleDeleteProduct(row.original.productId, row.original.name)}
-            className="h-8 px-2.5 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-bold border border-rose-200 flex items-center gap-1"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete
-          </Button>
+          {canEdit && (
+            <>
+              <Button size="sm" variant="ghost" onClick={() => setSelectedStockId(row.original.id)} className="h-8 px-2.5 rounded-lg text-zinc-600 hover:text-zinc-950 font-bold border border-zinc-150">
+                Adjust
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setSelectedProductId(row.original.productId)} className="h-8 px-2.5 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 font-bold border border-amber-200">
+                Edit
+              </Button>
+            </>
+          )}
+          {canDelete && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={isPending}
+              onClick={() => handleDeleteProduct(row.original.productId, row.original.name)}
+              className="h-8 px-2.5 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-bold border border-rose-200 flex items-center gap-1"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </Button>
+          )}
         </div>
       ),
-    },
-    {
-      accessorKey: "lastUpdated",
-      header: "Last Updated",
-      cell: ({ row }) => <span className="text-sm text-zinc-500 dark:text-zinc-400">{new Date(row.original.lastUpdated).toLocaleString()}</span>,
-    },
-  ];
+    });
+  }
+
+  columns.push({
+    accessorKey: "lastUpdated",
+    header: "Last Updated",
+    cell: ({ row }) => <span className="text-sm text-zinc-500 dark:text-zinc-400">{new Date(row.original.lastUpdated).toLocaleString()}</span>,
+  });
 
   return (
     <>

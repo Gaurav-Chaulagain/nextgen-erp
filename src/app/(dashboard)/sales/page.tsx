@@ -19,12 +19,24 @@ import {
   getSalesReturns,
   getSalesStats,
 } from "@/modules/sales/queries";
+import { getCurrentUser } from "@/auth/session";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
+import { redirect } from "next/navigation";
 
 type SalesPageProps = {
   searchParams?: Promise<{ tab?: string; page?: string; search?: string }>;
 };
 
 export default async function SalesPage({ searchParams }: SalesPageProps) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+  if (!hasPermission(user.role as Role, "sales", "view")) {
+    redirect("/dashboard");
+  }
+
   const params = await searchParams;
   const tab = params?.tab ?? "invoices";
   const search = params?.search ?? "";
@@ -80,7 +92,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
           title="Sales Invoices"
           description="Create multi-channel invoices, track customer payments, credit dues, and returns."
         />
-        <CreateInvoiceForm {...lookups} />
+        {hasPermission(user.role as Role, "sales", "create") && <CreateInvoiceForm {...lookups} />}
       </div>
 
       <SalesStats stats={stats} />
@@ -127,7 +139,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
           {invoices.length === 0 && !search ? (
             <p className="rounded-lg border border-dashed p-8 text-center text-sm text-zinc-500">No invoices yet.</p>
           ) : (
-            <InvoiceTable invoices={invoices} pagination={invoicesPagination} searchQuery={invoicesSearch} />
+            <InvoiceTable invoices={invoices} pagination={invoicesPagination} searchQuery={invoicesSearch} role={user.role} />
           )}
         </section>
       )}
@@ -139,12 +151,12 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
               <h2 className="text-lg font-semibold">Customers</h2>
               <p className="text-sm text-zinc-500">Active customer accounts, credit limits, and detailed double-entry ledgers.</p>
             </div>
-            <AddCustomerModal />
+            {hasPermission(user.role as Role, "sales", "create") && <AddCustomerModal />}
           </div>
           {customers.length === 0 && !search ? (
             <p className="rounded-lg border border-dashed p-8 text-center text-sm text-zinc-500">No customers registered yet.</p>
           ) : (
-            <CustomerListTable customers={customers as any} pagination={customersPagination} searchQuery={customersSearch} />
+            <CustomerListTable customers={customers as any} pagination={customersPagination} searchQuery={customersSearch} role={user.role} />
           )}
         </section>
       )}
@@ -158,7 +170,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
           {outstanding.length === 0 && !search ? (
             <p className="rounded-lg border border-dashed p-8 text-center text-sm text-zinc-500">No outstanding dues.</p>
           ) : (
-            <OutstandingDuesTable dues={outstanding} pagination={outstandingPagination} searchQuery={outstandingSearch} />
+            <OutstandingDuesTable dues={outstanding} pagination={outstandingPagination} searchQuery={outstandingSearch} role={user.role} />
           )}
         </section>
       )}

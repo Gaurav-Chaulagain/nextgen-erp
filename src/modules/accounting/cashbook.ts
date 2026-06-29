@@ -133,6 +133,28 @@ export async function getCashBookSummary(date: Date | string) {
     // D. Compute closing
     const closingBalance = openingBalance.plus(receivedToday).minus(paidToday);
 
+    // D2. Compute monthly flows
+    const startOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const sumInMonth = await db.cashBookEntry.aggregate({
+      where: {
+        entryDate: { gte: startOfMonth, lte: endOfMonth },
+        type: "RECEIVED"
+      },
+      _sum: { amount: true },
+    });
+    const receivedThisMonth = new Decimal(sumInMonth._sum.amount || 0);
+
+    const sumOutMonth = await db.cashBookEntry.aggregate({
+      where: {
+        entryDate: { gte: startOfMonth, lte: endOfMonth },
+        type: "PAID"
+      },
+      _sum: { amount: true },
+    });
+    const paidThisMonth = new Decimal(sumOutMonth._sum.amount || 0);
+
     // E. Compute breakdown by payment methods today
     const methods = ["CASH", "BANK", "CHEQUE", "ESEWA", "KHALTI"] as PaymentMode[];
     const methodSummaries: Record<string, string> = {};
@@ -155,6 +177,8 @@ export async function getCashBookSummary(date: Date | string) {
       receivedToday: receivedToday.toString(),
       paidToday: paidToday.toString(),
       closingBalance: closingBalance.toString(),
+      receivedThisMonth: receivedThisMonth.toString(),
+      paidThisMonth: paidThisMonth.toString(),
       methodBalances: methodSummaries,
     };
   } catch (error) {
@@ -164,6 +188,8 @@ export async function getCashBookSummary(date: Date | string) {
       receivedToday: "0.00",
       paidToday: "0.00",
       closingBalance: "0.00",
+      receivedThisMonth: "0.00",
+      paidThisMonth: "0.00",
       methodBalances: {
         CASH: "0.00",
         BANK: "0.00",

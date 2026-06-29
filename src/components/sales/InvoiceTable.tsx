@@ -13,6 +13,8 @@ import { RecordPaymentModal } from "./RecordPaymentModal";
 import { CreateReturnModal } from "./CreateReturnModal";
 import { Eye, RotateCcw } from "lucide-react";
 import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
 
 interface InvoiceTableProps {
   invoices: SalesInvoiceSchema[];
@@ -22,9 +24,10 @@ interface InvoiceTableProps {
     total: number;
   };
   searchQuery: string;
+  role?: string;
 }
 
-export function InvoiceTable({ invoices, pagination, searchQuery }: InvoiceTableProps) {
+export function InvoiceTable({ invoices, pagination, searchQuery, role }: InvoiceTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -165,6 +168,23 @@ export function InvoiceTable({ invoices, pagination, searchQuery }: InvoiceTable
       id: "actions",
       header: "Actions",
       cell: ({ row }) => {
+        if (!hasPermission(role as Role, "sales", "edit")) {
+          return (
+            <div className="flex items-center justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedInvoice(row.original);
+                  setShowPreview(true);
+                }}
+                className="h-7 px-2 border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 gap-1 rounded text-xs font-semibold"
+              >
+                <Eye size={12} /> View
+              </Button>
+            </div>
+          );
+        }
         const hasPayment = Number(row.original.balanceAmount) > 0 && row.original.status !== "CANCELLED";
         const hasReturn = row.original.status !== "CANCELLED" && row.original.status !== "DRAFT";
         return (

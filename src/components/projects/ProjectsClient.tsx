@@ -9,6 +9,8 @@ import { CreateProjectModal } from "./CreateProjectModal";
 import { IssueSupplyModal } from "./IssueSupplyModal";
 import { ProjectProfitabilityReport } from "./ProjectProfitabilityReport";
 import type { ProjectStatsSchema, ProjectProfitabilitySchema } from "@/modules/projects/types";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
 
 interface ProjectsClientProps {
   stats: ProjectStatsSchema;
@@ -25,6 +27,7 @@ interface ProjectsClientProps {
     products: any[];
     warehouses: Array<{ id: string; name: string }>;
   };
+  role?: string;
 }
 
 export function ProjectsClient({
@@ -38,6 +41,7 @@ export function ProjectsClient({
   currentTab,
   searchQuery,
   lookups,
+  role,
 }: ProjectsClientProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [showIssue, setShowIssue] = useState(false);
@@ -58,15 +62,17 @@ export function ProjectsClient({
           <h2 className="text-xl font-bold">Projects Board</h2>
           <p className="text-sm text-zinc-500">Track site dispatches, contracts, and profitability ratios.</p>
         </div>
-        <Button
-          onClick={() => {
-            setEditingProject(null);
-            setShowCreate(true);
-          }}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          + New Project
-        </Button>
+        {hasPermission(role as Role, "projects", "create") && (
+          <Button
+            onClick={() => {
+              setEditingProject(null);
+              setShowCreate(true);
+            }}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            + New Project
+          </Button>
+        )}
       </div>
 
       <ProjectStats stats={stats} />
@@ -115,6 +121,7 @@ export function ProjectsClient({
             setShowIssue(true);
           }}
           onEdit={handleEdit}
+          role={role}
         />
       )}
 
@@ -128,6 +135,7 @@ export function ProjectsClient({
             setShowIssue(true);
           }}
           onEdit={handleEdit}
+          role={role}
         />
       )}
 
