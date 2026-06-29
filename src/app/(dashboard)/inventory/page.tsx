@@ -14,12 +14,18 @@ import AddProductModal from "@/components/inventory/AddProductModal";
 import AdjustStockModal from "@/components/inventory/AdjustStockModal";
 import CategoriesTab from "@/components/inventory/CategoriesTab";
 import BrandsTab from "@/components/inventory/BrandsTab";
+import { getCurrentUser } from "@/auth/session";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
 
 type InventoryPageProps = {
   searchParams?: Promise<{ tab?: string; search?: string; page?: string; filter?: string }>;
 };
 
 export default async function InventoryPage({ searchParams }: InventoryPageProps) {
+  const user = await getCurrentUser();
+  const role = user?.role ?? "VIEWER";
+
   const params = await searchParams;
   const tab = params?.tab ?? "stock";
   const search = params?.search ?? "";
@@ -158,10 +164,14 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
               <div className="text-sm text-zinc-500 dark:text-zinc-400">{items.length} inventory rows</div>
             </div>
             <div className="flex items-center justify-end gap-2 mb-4">
-              <AddProductModal />
-              <AdjustStockModal stocks={items} />
+              {hasPermission(role as Role, "inventory", "create") && (
+                <>
+                  <AddProductModal />
+                  <AdjustStockModal stocks={items} />
+                </>
+              )}
             </div>
-            <InventoryTable items={items} pagination={pagination} searchQuery={search} />
+            <InventoryTable items={items} pagination={pagination} searchQuery={search} role={role} />
           </section>
         </>
       )}
@@ -178,6 +188,7 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
             initialCategories={categories as any}
             pagination={categoriesPagination}
             searchQuery={tab === "categories" ? search : ""}
+            role={role}
           />
         </section>
       )}
@@ -194,6 +205,7 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
             initialBrands={brands as any}
             pagination={brandsPagination}
             searchQuery={tab === "brands" ? search : ""}
+            role={role}
           />
         </section>
       )}

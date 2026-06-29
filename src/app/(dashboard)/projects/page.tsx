@@ -1,12 +1,16 @@
 import { ProjectsClient } from "@/components/projects/ProjectsClient";
 import { getProjectStats, getProjectProfitability, getProjectLookups } from "@/modules/projects/queries";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { getCurrentUser } from "@/auth/session";
 
 type ProjectsPageProps = {
   searchParams?: Promise<{ tab?: string; page?: string; search?: string }>;
 };
 
 export default async function ProjectsPage({ searchParams }: ProjectsPageProps) {
+  const user = await getCurrentUser();
+  const role = user?.role ?? "VIEWER";
+
   const params = await searchParams;
   const tab = params?.tab ?? "active";
   const search = params?.search ?? "";
@@ -49,6 +53,7 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
         currentTab={tab}
         searchQuery={search}
         lookups={lookups}
+        role={role}
       />
     </div>
   );

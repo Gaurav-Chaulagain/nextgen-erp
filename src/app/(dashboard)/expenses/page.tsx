@@ -30,6 +30,7 @@ export default async function ExpensesRoutePage({ searchParams }: ExpensesPagePr
       selectedMonthFilter={month}
       stats={stats}
       userId={userId}
+      role={user?.role ?? "VIEWER"}
     />
   );
 }

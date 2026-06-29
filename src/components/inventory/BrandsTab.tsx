@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { deleteBrand, updateBrand } from "@/modules/inventory/actions";
 import { Pencil, Trash2, Plus, Search, Award, AlertTriangle, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import BrandModal from "./BrandModal";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
 
 interface BrandData {
   id: string;
@@ -31,9 +33,10 @@ interface BrandsTabProps {
     total: number;
   };
   searchQuery: string;
+  role?: string;
 }
 
-export function BrandsTab({ initialBrands, pagination, searchQuery }: BrandsTabProps) {
+export function BrandsTab({ initialBrands, pagination, searchQuery, role }: BrandsTabProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -146,6 +149,10 @@ export function BrandsTab({ initialBrands, pagination, searchQuery }: BrandsTabP
   // Render server-side filtered brands directly
   const filteredBrands = brands;
 
+  const canCreate = hasPermission(role as Role, "inventory", "create");
+  const canEdit = hasPermission(role as Role, "inventory", "edit");
+  const canDelete = hasPermission(role as Role, "inventory", "delete");
+
   return (
     <div className="space-y-4">
       {/* Filters & Actions Bar */}
@@ -159,16 +166,18 @@ export function BrandsTab({ initialBrands, pagination, searchQuery }: BrandsTabP
             className="pl-10 h-10 rounded-xl border-zinc-200 dark:border-zinc-800"
           />
         </div>
-        <Button
-          onClick={() => {
-            setSelectedBrand(null);
-            setIsModalOpen(true);
-          }}
-          className="h-10 px-4 rounded-xl font-bold flex items-center gap-2 shadow-md shadow-primary/20"
-        >
-          <Plus className="h-4.5 w-4.5" />
-          Add Brand
-        </Button>
+        {canCreate && (
+          <Button
+            onClick={() => {
+              setSelectedBrand(null);
+              setIsModalOpen(true);
+            }}
+            className="h-10 px-4 rounded-xl font-bold flex items-center gap-2 shadow-md shadow-primary/20"
+          >
+            <Plus className="h-4.5 w-4.5" />
+            Add Brand
+          </Button>
+        )}
       </div>
 
       {/* Table Section */}
@@ -180,13 +189,13 @@ export function BrandsTab({ initialBrands, pagination, searchQuery }: BrandsTabP
               <TableHead className="font-bold text-zinc-600 dark:text-zinc-400">Description</TableHead>
               <TableHead className="font-bold text-zinc-600 dark:text-zinc-400 text-center">Products Count</TableHead>
               <TableHead className="font-bold text-zinc-600 dark:text-zinc-400 text-center">Status</TableHead>
-              <TableHead className="font-bold text-zinc-600 dark:text-zinc-400 text-right">Actions</TableHead>
+              {(canEdit || canDelete) && <TableHead className="font-bold text-zinc-600 dark:text-zinc-400 text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredBrands.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center text-zinc-500">
+                <TableCell colSpan={!(canEdit || canDelete) ? 4 : 5} className="h-32 text-center text-zinc-500">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Award className="h-8 w-8 text-zinc-300" />
                     <span>No brands found. Create a new manufacturer brand to get started.</span>
@@ -219,46 +228,54 @@ export function BrandsTab({ initialBrands, pagination, searchQuery }: BrandsTabP
                       <Badge variant={b.isActive ? "default" : "secondary"} className="h-5">
                         {b.isActive ? "Active" : "Inactive"}
                       </Badge>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleActive(b)}
-                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          b.isActive ? "bg-emerald-500" : "bg-zinc-250 dark:bg-zinc-800"
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            b.isActive ? "translate-x-4" : "translate-x-0"
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleActive(b)}
+                          className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            b.isActive ? "bg-emerald-500" : "bg-zinc-250 dark:bg-zinc-800"
                           }`}
-                        />
-                      </button>
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              b.isActive ? "translate-x-4" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      )}
                     </div>
                   </TableCell>
 
                   {/* Actions Column */}
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setSelectedBrand(b);
-                          setIsModalOpen(true);
-                        }}
-                        className="h-8 w-8 rounded-lg text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteClick(b)}
-                        className="h-8 w-8 rounded-lg text-zinc-400 hover:text-rose-600 dark:text-zinc-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  {(canEdit || canDelete) && (
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {canEdit && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setSelectedBrand(b);
+                              setIsModalOpen(true);
+                            }}
+                            className="h-8 w-8 rounded-lg text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteClick(b)}
+                            className="h-8 w-8 rounded-lg text-zinc-400 hover:text-rose-600 dark:text-zinc-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}

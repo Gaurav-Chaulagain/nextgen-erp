@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Hammer, Eye, Edit2, PlayCircle, PauseCircle, CheckCircle, Trash2 } from "lucide-react";
 import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
 
 interface ProjectsTableProps {
   projects: ProjectProfitabilitySchema[];
@@ -24,6 +26,7 @@ interface ProjectsTableProps {
   searchQuery: string;
   onIssueSupply: (project: { id: string; name: string; clientId: string; clientName: string }) => void;
   onEdit: (project: any) => void;
+  role?: string;
 }
 
 export function ProjectsTable({
@@ -32,6 +35,7 @@ export function ProjectsTable({
   searchQuery,
   onIssueSupply,
   onEdit,
+  role,
 }: ProjectsTableProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -223,6 +227,17 @@ export function ProjectsTable({
       header: "Actions",
       cell: ({ row }) => {
         const p = row.original;
+        const canEdit = hasPermission(role as Role, "projects", "edit");
+        if (!canEdit) {
+          return (
+            <Link href={`/projects/${p.projectId}`}>
+              <Button variant="outline" size="sm" className="h-8 px-2.5">
+                <Eye className="h-3.5 w-3.5 mr-1" />
+                View Details
+              </Button>
+            </Link>
+          );
+        }
         return (
           <div className="flex items-center gap-1.5 flex-wrap">
             <Link href={`/projects/${p.projectId}`}>
@@ -260,7 +275,7 @@ export function ProjectsTable({
               <Edit2 className="h-3 w-3" />
             </Button>
 
-            {(p.status === "CANCELLED" || p.status === "COMPLETED") && (
+            {hasPermission(role as Role, "projects", "delete") && (p.status === "CANCELLED" || p.status === "COMPLETED") && (
               <Button
                 variant="outline"
                 size="sm"

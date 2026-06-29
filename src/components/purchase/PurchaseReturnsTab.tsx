@@ -10,6 +10,8 @@ import { createPurchaseReturn } from "@/modules/purchase/actions";
 import { formatDate, formatAmountOnly } from "@/lib/utils";
 import { toast } from "sonner";
 import { RefreshCcw, Plus, Trash2, Eye, Clipboard, ArrowLeftRight, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
 
 interface PurchaseReturnsTabProps {
   returns: any[];
@@ -20,9 +22,10 @@ interface PurchaseReturnsTabProps {
   };
   searchQuery: string;
   userId: string;
+  role?: string;
 }
 
-export function PurchaseReturnsTab({ returns: initialReturns, pagination, searchQuery, userId }: PurchaseReturnsTabProps) {
+export function PurchaseReturnsTab({ returns: initialReturns, pagination, searchQuery, userId, role }: PurchaseReturnsTabProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -214,12 +217,14 @@ export function PurchaseReturnsTab({ returns: initialReturns, pagination, search
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Purchase Returns</h2>
           <p className="text-sm text-zinc-500">Track and dispatch returned materials back to suppliers, decrementing stock and debiting payable ledgers.</p>
         </div>
-        <Button
-          onClick={() => setOpen(true)}
-          className="gap-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-md border-none"
-        >
-          <Plus size={16} /> Log Purchase Return
-        </Button>
+        {hasPermission(role as Role, "purchase", "create") && (
+          <Button
+            onClick={() => setOpen(true)}
+            className="gap-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-md border-none"
+          >
+            <Plus size={16} /> Log Purchase Return
+          </Button>
+        )}
       </div>
 
       {/* Search Input */}

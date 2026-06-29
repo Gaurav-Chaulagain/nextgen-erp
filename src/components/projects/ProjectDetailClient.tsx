@@ -24,6 +24,8 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import Link from "next/link";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
 
 interface ProjectDetailClientProps {
   data: {
@@ -31,9 +33,10 @@ interface ProjectDetailClientProps {
     billings: any[];
     materialUsage: any[];
   };
+  role?: string;
 }
 
-export function ProjectDetailClient({ data }: ProjectDetailClientProps) {
+export function ProjectDetailClient({ data, role }: ProjectDetailClientProps) {
   const { project, billings, materialUsage } = data;
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -112,21 +115,28 @@ export function ProjectDetailClient({ data }: ProjectDetailClientProps) {
           </Button>
         </Link>
 
-        <div className="flex items-center gap-1.5 border rounded-lg p-1 bg-zinc-50 dark:bg-zinc-900/40">
-          <span className="text-xs font-semibold px-2 text-zinc-400">Shift Status:</span>
-          {["PLANNING", "ACTIVE", "ON_HOLD", "COMPLETED", "CANCELLED"].map((statusOption) => (
-            <Button
-              key={statusOption}
-              variant={project.status === statusOption ? "default" : "ghost"}
-              size="sm"
-              className="h-7 text-xs px-2.5"
-              disabled={isPending}
-              onClick={() => handleStatusChange(statusOption)}
-            >
-              {statusOption}
-            </Button>
-          ))}
-        </div>
+        {!hasPermission(role as Role, "projects", "edit") ? (
+          <div className="flex items-center gap-1.5 border rounded-lg px-3 py-1.5 bg-zinc-50 dark:bg-zinc-900/40">
+            <span className="text-xs font-semibold text-zinc-400">Current Status:</span>
+            <Badge className={statusColors[project.status]}>{project.status}</Badge>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 border rounded-lg p-1 bg-zinc-50 dark:bg-zinc-900/40">
+            <span className="text-xs font-semibold px-2 text-zinc-400">Shift Status:</span>
+            {["PLANNING", "ACTIVE", "ON_HOLD", "COMPLETED", "CANCELLED"].map((statusOption) => (
+              <Button
+                key={statusOption}
+                variant={project.status === statusOption ? "default" : "ghost"}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                disabled={isPending}
+                onClick={() => handleStatusChange(statusOption)}
+              >
+                {statusOption}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Section 1 — Project Header */}

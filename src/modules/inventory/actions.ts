@@ -18,6 +18,7 @@ import { fetchInventoryAlerts } from "./queries";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/auth/session";
 import { serializeForClient } from "@/lib/utils";
+import { checkServerPermission } from "@/auth/permissions.server";
 
 
 async function resolveUserId(db: any, userId?: string): Promise<string> {
@@ -53,6 +54,7 @@ async function resolveUserId(db: any, userId?: string): Promise<string> {
 }
 
 export async function createInventoryItem(data: CreateInventoryItemInput, userId: string) {
+  await checkServerPermission("inventory", "create");
   const parsed = createInventoryItemSchema.parse(data);
   const db = await getDb();
   const activeUserId = await resolveUserId(db, userId);
@@ -249,6 +251,7 @@ export async function adjustInventoryQuantity(
   newReorderLevel?: number,
   notes?: string
 ) {
+  await checkServerPermission("inventory", "edit");
   const parsed = adjustInventoryQuantitySchema.parse({ stockId, adjustment, newReorderLevel, notes });
   const db = await getDb();
   const activeUserId = await resolveUserId(db, userId);
@@ -345,6 +348,7 @@ export async function getInventoryAlerts() {
 // ============================================================================
 
 export async function createCategory(data: any) {
+  await checkServerPermission("inventory", "create");
   const parsed = createCategorySchema.parse(data);
   const db = await getDb();
   const userId = await resolveUserId(db);
@@ -378,6 +382,7 @@ export async function createCategory(data: any) {
 }
 
 export async function updateCategory(id: string, data: any) {
+  await checkServerPermission("inventory", "edit");
   const parsed = updateCategorySchema.parse(data);
   const db = await getDb();
   const userId = await resolveUserId(db);
@@ -420,6 +425,7 @@ export async function updateCategory(id: string, data: any) {
 }
 
 export async function deleteCategory(id: string) {
+  await checkServerPermission("inventory", "delete");
   const db = await getDb();
   const userId = await resolveUserId(db);
 
@@ -454,6 +460,7 @@ export async function deleteCategory(id: string) {
 // ============================================================================
 
 export async function createBrand(data: any) {
+  await checkServerPermission("inventory", "create");
   const parsed = createBrandSchema.parse(data);
   const db = await getDb();
   const userId = await resolveUserId(db);
@@ -487,6 +494,7 @@ export async function createBrand(data: any) {
 }
 
 export async function updateBrand(id: string, data: any) {
+  await checkServerPermission("inventory", "edit");
   const parsed = updateBrandSchema.parse(data);
   const db = await getDb();
   const userId = await resolveUserId(db);
@@ -529,6 +537,7 @@ export async function updateBrand(id: string, data: any) {
 }
 
 export async function deleteBrand(id: string) {
+  await checkServerPermission("inventory", "delete");
   const db = await getDb();
   const userId = await resolveUserId(db);
 
@@ -598,6 +607,7 @@ export async function updateInventoryProduct(productId: string, data: {
   wholesalePrice?: number | string;
   projectPrice?: number | string;
 }) {
+  await checkServerPermission("inventory", "edit");
   const db = await getDb();
   const userId = await resolveUserId(db);
 
@@ -695,6 +705,7 @@ export async function updateInventoryProduct(productId: string, data: {
 }
 
 export async function deleteInventoryProduct(productId: string, userId: string) {
+  await checkServerPermission("inventory", "delete");
   const db = await getDb();
   const activeUserId = await resolveUserId(db, userId);
 

@@ -2,6 +2,7 @@ import { getProjectById } from "@/modules/projects/queries";
 import { ProjectDetailClient } from "@/components/projects/ProjectDetailClient";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { getCurrentUser } from "@/auth/session";
 
 type ProjectDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -9,6 +10,8 @@ type ProjectDetailPageProps = {
 
 export default async function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const { id } = await params;
+  const user = await getCurrentUser();
+  const role = user?.role ?? "VIEWER";
   const projectDetails = await getProjectById(id);
 
   if (!projectDetails) {
@@ -23,7 +26,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
           description="Detailed contract dashboard tracking material dispatches, milestone invoicing, and profit margins."
         />
       </div>
-      <ProjectDetailClient data={projectDetails} />
+      <ProjectDetailClient data={projectDetails} role={role} />
     </div>
   );
 }

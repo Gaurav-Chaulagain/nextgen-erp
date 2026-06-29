@@ -10,13 +10,15 @@ import { fetchCashBookEntriesAction, fetchCashBookSummaryAction, deleteCashBookE
 import { AddCashEntryModal } from "./AddCashEntryModal";
 import { EditCashEntryModal } from "./EditCashEntryModal";
 import { ColumnDef } from "@tanstack/react-table";
-import { Wallet, Coins, Building, QrCode, Plus, Calendar, RefreshCw, Pencil, Trash2, Lock } from "lucide-react";
+import { Wallet, Coins, Building, QrCode, Plus, Calendar, RefreshCw, Pencil, Trash2, Lock, ArrowUpRight, ArrowDownRight, ArrowDownLeft, TrendingUp, TrendingDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { PaymentMode } from "@/generated/prisma/enums";
 import { DualDatePicker } from "@/components/shared/DualDatePicker";
 import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
 
 interface CashEntryRow {
   id: string;
@@ -33,7 +35,11 @@ interface CashEntryRow {
   creator: { name: string };
 }
 
-export function CashBookPage() {
+interface CashBookPageProps {
+  role?: string;
+}
+
+export function CashBookPage({ role }: CashBookPageProps) {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   
@@ -42,6 +48,8 @@ export function CashBookPage() {
     receivedToday: "0.00",
     paidToday: "0.00",
     closingBalance: "0.00",
+    receivedThisMonth: "0.00",
+    paidThisMonth: "0.00",
     methodBalances: {} as Record<string, string>,
   });
   
@@ -199,6 +207,17 @@ export function CashBookPage() {
         const entry = row.original;
         const isManual = !entry.referenceType || entry.referenceType === "CASH_BOOK";
         
+        const canEdit = hasPermission(role as Role, "cashbook", "edit");
+        const canDelete = hasPermission(role as Role, "cashbook", "delete");
+
+        if (!canEdit) {
+          return (
+            <div className="flex items-center justify-center h-7 w-7 text-zinc-450 dark:text-zinc-650" title="Read-only access">
+              <Lock className="h-3.5 w-3.5" />
+            </div>
+          );
+        }
+
         if (isManual) {
           return (
             <div className="flex gap-2">
@@ -215,18 +234,20 @@ export function CashBookPage() {
               >
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDelete(entry.id);
-                }}
-                className="h-7 w-7 p-0 border-red-200 text-red-650 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20"
-                title="Delete Transaction"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
+              {canDelete && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(entry.id);
+                  }}
+                  className="h-7 w-7 p-0 border-red-200 text-red-650 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20"
+                  title="Delete Transaction"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
           );
         }
@@ -240,6 +261,11 @@ export function CashBookPage() {
     },
   ];
 
+  const receivedVal = Number(summary.receivedThisMonth || 0);
+  const paidVal = Number(summary.paidThisMonth || 0);
+  const netFlow = receivedVal - paidVal;
+  const isNetPositive = netFlow >= 0;
+
   return (
     <div className="space-y-8 animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -247,28 +273,32 @@ export function CashBookPage() {
           title="Cash Book Journal"
           description="Monitor cash inflows, physical vault reserves, bank accounts, and digital digital transactions."
         />
-        <Button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white flex gap-1 h-10 px-4 rounded-xl shadow-sm text-xs font-bold shrink-0 self-start md:self-auto"
-        >
-          <Plus className="h-4 w-4" />
-          Record Transaction
-        </Button>
+        {hasPermission(role as Role, "cashbook", "create") && (
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white flex gap-1 h-10 px-4 rounded-xl shadow-sm text-xs font-bold shrink-0 self-start md:self-auto"
+          >
+            <Plus className="h-4 w-4" />
+            Record Transaction
+          </Button>
+        )}
       </div>
 
       {/* Cash Box Summary KPI Cards */}
       {isLoading ? (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((n) => (
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {[1, 2, 3, 4, 5].map((n) => (
             <Card key={n} className="border border-zinc-100 dark:border-zinc-800 shadow-sm rounded-2xl h-32 animate-pulse bg-zinc-50 dark:bg-zinc-900" />
           ))}
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <Card className="border border-zinc-100 shadow-sm rounded-2xl dark:border-zinc-800 dark:bg-zinc-950 hover:shadow-md transition-shadow">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {/* Cash Vault */}
+          <Card className="border border-zinc-100 shadow-sm rounded-2xl dark:border-zinc-800 dark:bg-zinc-950 hover:shadow-md hover:-translate-y-1 transition-all duration-300 border-t-[4px] border-t-amber-500 group relative overflow-hidden cursor-pointer">
+            <div className="absolute inset-0 bg-gradient-to-b from-amber-50/10 to-transparent dark:from-amber-950/5 pointer-events-none" />
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-400">Cash-In-Hand Vault</CardTitle>
-              <div className="p-2.5 rounded-xl text-amber-500 bg-amber-50 dark:bg-amber-950/20">
+              <div className="p-2.5 rounded-xl text-amber-500 bg-amber-50 dark:bg-amber-950/20 group-hover:scale-110 transition-transform duration-300">
                 <Coins className="h-4 w-4" />
               </div>
             </CardHeader>
@@ -280,10 +310,12 @@ export function CashBookPage() {
             </CardContent>
           </Card>
 
-          <Card className="border border-zinc-100 shadow-sm rounded-2xl dark:border-zinc-800 dark:bg-zinc-950 hover:shadow-md transition-shadow">
+          {/* Bank Balance */}
+          <Card className="border border-zinc-100 shadow-sm rounded-2xl dark:border-zinc-800 dark:bg-zinc-950 hover:shadow-md hover:-translate-y-1 transition-all duration-300 border-t-[4px] border-t-blue-500 group relative overflow-hidden cursor-pointer">
+            <div className="absolute inset-0 bg-gradient-to-b from-blue-50/10 to-transparent dark:from-blue-950/5 pointer-events-none" />
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-400">Commercial Bank Balance</CardTitle>
-              <div className="p-2.5 rounded-xl text-blue-500 bg-blue-50 dark:bg-blue-950/20">
+              <div className="p-2.5 rounded-xl text-blue-500 bg-blue-50 dark:bg-blue-950/20 group-hover:scale-110 transition-transform duration-300">
                 <Building className="h-4 w-4" />
               </div>
             </CardHeader>
@@ -295,10 +327,12 @@ export function CashBookPage() {
             </CardContent>
           </Card>
 
-          <Card className="border border-zinc-100 shadow-sm rounded-2xl dark:border-zinc-800 dark:bg-zinc-950 hover:shadow-md transition-shadow">
+          {/* Digital QR Wallets */}
+          <Card className="border border-zinc-100 shadow-sm rounded-2xl dark:border-zinc-800 dark:bg-zinc-950 hover:shadow-md hover:-translate-y-1 transition-all duration-300 border-t-[4px] border-t-emerald-500 group relative overflow-hidden cursor-pointer">
+            <div className="absolute inset-0 bg-gradient-to-b from-emerald-50/10 to-transparent dark:from-emerald-950/5 pointer-events-none" />
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-400">Digital QR Wallets (eSewa/Khalti)</CardTitle>
-              <div className="p-2.5 rounded-xl text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-400">Digital QR Wallets</CardTitle>
+              <div className="p-2.5 rounded-xl text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 group-hover:scale-110 transition-transform duration-300">
                 <QrCode className="h-4 w-4" />
               </div>
             </CardHeader>
@@ -306,7 +340,65 @@ export function CashBookPage() {
               <div className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
                 <NPRAmount amount={Number(summary.methodBalances["ESEWA"] || 0) + Number(summary.methodBalances["KHALTI"] || 0)} />
               </div>
-              <p className="text-xs text-zinc-400 font-semibold mt-1">Direct merchant digital account balances</p>
+              <p className="text-xs text-zinc-400 font-semibold mt-1">Direct merchant QR balances</p>
+            </CardContent>
+          </Card>
+
+          {/* Amount Received (This Month) */}
+          <Card className="border border-zinc-100 shadow-sm rounded-2xl dark:border-zinc-800 dark:bg-zinc-950 hover:shadow-md hover:-translate-y-1 transition-all duration-300 border-t-[4px] border-t-emerald-500 group relative overflow-hidden cursor-pointer">
+            <div className="absolute inset-0 bg-gradient-to-b from-emerald-50/10 to-transparent dark:from-emerald-950/5 pointer-events-none" />
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-400">Received (This Month)</CardTitle>
+              <div className="p-2.5 rounded-xl text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 group-hover:scale-110 transition-transform duration-300">
+                <TrendingUp className="h-4 w-4" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-450">
+                <NPRAmount amount={receivedVal} />
+              </div>
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                  isNetPositive 
+                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400" 
+                    : "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-400"
+                }`}>
+                  {isNetPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                  {isNetPositive ? "Surplus" : "Deficit"}
+                </span>
+                <span className="text-[10px] text-zinc-400 font-semibold">
+                  Net: {isNetPositive ? "+" : ""}<NPRAmount amount={netFlow} showCurrency={false} />
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Amount Paid (This Month) */}
+          <Card className="border border-zinc-100 shadow-sm rounded-2xl dark:border-zinc-800 dark:bg-zinc-950 hover:shadow-md hover:-translate-y-1 transition-all duration-300 border-t-[4px] border-t-rose-500 group relative overflow-hidden cursor-pointer">
+            <div className="absolute inset-0 bg-gradient-to-b from-rose-50/10 to-transparent dark:from-rose-950/5 pointer-events-none" />
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-400">Paid (This Month)</CardTitle>
+              <div className="p-2.5 rounded-xl text-rose-500 bg-rose-50 dark:bg-rose-950/20 group-hover:scale-110 transition-transform duration-300">
+                <TrendingDown className="h-4 w-4" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="text-2xl font-bold tracking-tight text-rose-600 dark:text-rose-455">
+                <NPRAmount amount={paidVal} />
+              </div>
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                  isNetPositive 
+                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400" 
+                    : "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-400"
+                }`}>
+                  {isNetPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                  {isNetPositive ? "Surplus" : "Deficit"}
+                </span>
+                <span className="text-[10px] text-zinc-400 font-semibold">
+                  Net: {isNetPositive ? "+" : ""}<NPRAmount amount={netFlow} showCurrency={false} />
+                </span>
+              </div>
             </CardContent>
           </Card>
         </div>

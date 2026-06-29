@@ -23,6 +23,8 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
 import {
   Dialog,
   DialogContent,
@@ -60,6 +62,7 @@ interface ExpensesPageProps {
     breakdown: Array<{ category: string; amount: string }>;
   };
   userId: string;
+  role?: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -235,6 +238,7 @@ export function ExpensesPage({
   selectedMonthFilter,
   stats,
   userId,
+  role,
 }: ExpensesPageProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -386,7 +390,7 @@ export function ExpensesPage({
           title="Operating Expenses Ledger"
           description="Log daily running cost, Office Rent, Salary, Travelling Expenses, and double-entry vault allocations."
         />
-        <AddExpenseModal userId={userId} />
+        {hasPermission(role as Role, "expenses", "create") && <AddExpenseModal userId={userId} />}
       </div>
 
       {/* KPI Stats Grid */}
@@ -562,23 +566,25 @@ export function ExpensesPage({
                         >
                           <Eye size={14} />
                         </button>
-                        {/* Edit */}
-                        <button
-                          onClick={() => openEdit(e)}
-                          className="p-1.5 text-zinc-500 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-all"
-                          title="Edit expense"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        {/* Delete */}
-                        <button
-                          onClick={() => handleDelete(e.id, e.expenseCode)}
-                          disabled={isPending}
-                          className="p-1.5 text-zinc-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all"
-                          title="Delete expense"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {hasPermission(role as Role, "expenses", "edit") && (
+                          <button
+                            onClick={() => openEdit(e)}
+                            className="p-1.5 text-zinc-500 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-all"
+                            title="Edit expense"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        )}
+                        {hasPermission(role as Role, "expenses", "delete") && (
+                          <button
+                            onClick={() => handleDelete(e.id, e.expenseCode)}
+                            disabled={isPending}
+                            className="p-1.5 text-zinc-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all"
+                            title="Delete expense"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -19,6 +19,8 @@ import { formatDate, formatNPR, formatAmountOnly } from "@/lib/utils";
 import { Eye, CheckSquare, BookOpen, XCircle, ShoppingBag, CreditCard, Pencil, Trash2, Loader2, Send, Download, RotateCcw } from "lucide-react";
 import { DualDateDisplay } from "@/components/shared/DualDateDisplay";
 import { generatePOPDF } from "@/lib/po-pdf";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
 
 interface PurchaseOrderTableProps {
   orders: PurchaseOrderSchema[];
@@ -29,9 +31,10 @@ interface PurchaseOrderTableProps {
   };
   searchQuery: string;
   userId: string;
+  role?: string;
 }
 
-export function PurchaseOrderTable({ orders, pagination, searchQuery, userId }: PurchaseOrderTableProps) {
+export function PurchaseOrderTable({ orders, pagination, searchQuery, userId, role }: PurchaseOrderTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -231,19 +234,38 @@ export function PurchaseOrderTable({ orders, pagination, searchQuery, userId }: 
     {
       id: "actions",
       header: "Actions",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1.5 whitespace-nowrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setSelectedPO(row.original);
-              setShowDetail(true);
-            }}
-            className="h-8 border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 gap-1 rounded-md text-xs font-semibold"
-          >
-            <Eye size={13} /> View
-          </Button>
+      cell: ({ row }) => {
+        const canEdit = hasPermission(role as Role, "purchase", "edit");
+        if (!canEdit) {
+          return (
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedPO(row.original);
+                  setShowDetail(true);
+                }}
+                className="h-8 border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 gap-1 rounded-md text-xs font-semibold"
+              >
+                <Eye size={13} /> View
+              </Button>
+            </div>
+          );
+        }
+        return (
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedPO(row.original);
+                setShowDetail(true);
+              }}
+              className="h-8 border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 gap-1 rounded-md text-xs font-semibold"
+            >
+              <Eye size={13} /> View
+            </Button>
 
           <Button
             variant="outline"
@@ -335,31 +357,34 @@ export function PurchaseOrderTable({ orders, pagination, searchQuery, userId }: 
             </Button>
           )}
 
-          {row.original.status === "CANCELLED" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setPoToDelete(row.original);
-                setShowDelete(true);
-              }}
-              className="h-8 border-rose-250 bg-rose-50 text-rose-600 hover:bg-rose-100 gap-1 rounded-md text-xs font-semibold"
-            >
-              <Trash2 size={13} /> Delete
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled
-              title="Only cancelled purchase orders can be deleted"
-              className="h-8 border-zinc-200 bg-zinc-50 text-zinc-400 gap-1 rounded-md text-xs font-semibold cursor-not-allowed opacity-50"
-            >
-              <Trash2 size={13} /> Delete
-            </Button>
+          {hasPermission(role as Role, "purchase", "delete") && (
+            row.original.status === "CANCELLED" ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setPoToDelete(row.original);
+                  setShowDelete(true);
+                }}
+                className="h-8 border-rose-250 bg-rose-50 text-rose-600 hover:bg-rose-100 gap-1 rounded-md text-xs font-semibold"
+              >
+                <Trash2 size={13} /> Delete
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled
+                title="Only cancelled purchase orders can be deleted"
+                className="h-8 border-zinc-200 bg-zinc-50 text-zinc-400 gap-1 rounded-md text-xs font-semibold cursor-not-allowed opacity-50"
+              >
+                <Trash2 size={13} /> Delete
+              </Button>
+            )
           )}
         </div>
-      ),
+        );
+      },
     },
   ];
 

@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/auth/session";
 import { getUsersList } from "../../../modules/users/queries";
 import { UsersPage } from "../../../components/users/UsersPage";
 import { redirect } from "next/navigation";
+import { hasPermission } from "@/auth/permissions";
+import { Role } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,10 @@ export default async function Page() {
 
   if (!sessionUser) {
     redirect("/login");
+  }
+
+  if (!hasPermission(sessionUser.role as Role, "users", "view")) {
+    redirect("/dashboard");
   }
 
   // Fetch initial users from DB
