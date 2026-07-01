@@ -358,43 +358,48 @@ export async function addCapitalEntryAction(data: {
   paymentMethod: PaymentMode;
 }) {
   await checkServerPermission("cashbook", "create");
-  const db = await getDb();
-  const session = await getCurrentUser();
-  if (!session?.id) throw new Error("Unauthorized");
+  try {
+    const db = await getDb();
+    const session = await getCurrentUser();
+    if (!session?.id) throw new Error("Unauthorized");
 
-  const entry = await db.$transaction(async (tx) => {
-    const cashEntry = await tx.cashBookEntry.create({
-      data: {
-        entryDate: new Date(data.entryDate),
-        type: "RECEIVED",
-        amount: data.amount,
-        description: data.description || "Owner Capital Contribution",
-        paymentMethod: data.paymentMethod,
-        referenceType: "FINANCING",
-        createdBy: session.id,
-      },
-    });
-
-    await tx.auditLog.create({
-      data: {
-        userId: session.id,
-        action: "CREATE",
-        module: "CAPITAL",
-        recordId: cashEntry.id,
-        newValues: {
-          id: cashEntry.id,
-          amount: data.amount.toString(),
+    const entry = await db.$transaction(async (tx) => {
+      const cashEntry = await tx.cashBookEntry.create({
+        data: {
+          entryDate: new Date(data.entryDate),
+          type: "RECEIVED",
+          amount: data.amount,
+          description: data.description || "Owner Capital Contribution",
           paymentMethod: data.paymentMethod,
+          referenceType: "FINANCING",
+          createdBy: session.id,
         },
-      },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: session.id,
+          action: "CREATE",
+          module: "CAPITAL",
+          recordId: cashEntry.id,
+          newValues: {
+            id: cashEntry.id,
+            amount: data.amount.toString(),
+            paymentMethod: data.paymentMethod,
+          },
+        },
+      });
+
+      return cashEntry;
     });
 
-    return cashEntry;
-  });
-
-  revalidatePath("/assets");
-  revalidatePath("/cashbook");
-  revalidatePath("/dashboard");
-  return { success: true, entry };
+    revalidatePath("/assets");
+    revalidatePath("/cashbook");
+    revalidatePath("/dashboard");
+    return { success: true, entry };
+  } catch (error: any) {
+    console.error("Failed to record capital contribution:", error);
+    return { success: false, error: error.message || "Failed to record capital" };
+  }
 }
 
