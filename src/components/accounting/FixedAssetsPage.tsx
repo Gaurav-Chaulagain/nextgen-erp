@@ -480,7 +480,7 @@ export function FixedAssetsPage() {
                 data={filteredAssets}
                 searchPlaceholder="Search asset name or category..."
                 searchColumnId="name"
-                search={search}
+                searchValue={search}
                 onSearchChange={handleSearchChange}
                 pagination={{
                   pageIndex: 0,
@@ -508,7 +508,7 @@ export function FixedAssetsPage() {
                 data={filteredCapital}
                 searchPlaceholder="Search description or method..."
                 searchColumnId="description"
-                search={search}
+                searchValue={search}
                 onSearchChange={handleSearchChange}
                 pagination={{
                   pageIndex: 0,
